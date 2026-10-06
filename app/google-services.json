@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "255888566458",
+    "project_id": "cosmica-cafe",
+    "storage_bucket": "cosmica-cafe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255888566458:android:0a7e6d05f4cac0f7857a83",
+        "android_client_info": {
+          "package_name": "com.cosmica.cafeteria"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACSRcBaCxXHwdijVKerlIqAY91lHLM98U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
