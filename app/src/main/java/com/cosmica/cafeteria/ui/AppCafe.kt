@@ -1,6 +1,8 @@
 package com.cosmica.cafeteria.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -31,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import com.cosmica.cafeteria.CafeViewModel
 import com.cosmica.cafeteria.ui.screens.BalanceScreen
 import com.cosmica.cafeteria.ui.screens.GastosScreen
@@ -94,13 +97,33 @@ fun AppCafe(vm: CafeViewModel) {
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        val m = Modifier.padding(padding)
-        when (seccion) {
+        val problema by vm.problema.collectAsState()
+        val pendientes by vm.pendientes.collectAsState()
+        Column(Modifier.padding(padding)) {
+            AvisoSincronizacion(problema, pendientes)
+            val m = Modifier.weight(1f)
+            when (seccion) {
             Seccion.Vender -> VenderScreen(vm, snackbar, m)
             Seccion.Ventas -> VentasScreen(vm, m)
             Seccion.Gastos -> GastosScreen(vm, m)
             Seccion.Menu -> MenuScreen(vm, m)
             Seccion.Balance -> BalanceScreen(vm, m)
+            }
         }
+    }
+}
+
+/** Franja que avisa si los datos no se están compartiendo con el otro teléfono. */
+@Composable
+private fun AvisoSincronizacion(problema: String?, pendientes: Set<String>) {
+    val texto = problema ?: if (pendientes.isNotEmpty()) {
+        "Cambios en ${pendientes.sorted().joinToString()} guardados en este teléfono, esperando internet para compartirse."
+    } else null
+    if (texto == null) return
+    Surface(
+        color = if (problema != null) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(texto, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
     }
 }

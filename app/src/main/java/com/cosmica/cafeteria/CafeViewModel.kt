@@ -46,6 +46,11 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
 
     val usuario: StateFlow<Usuario?> = sesion.usuario
 
+    /** Problema de conexión o permisos con la base de datos, para avisar en pantalla. */
+    val problema: StateFlow<String?> = repo.problema
+    /** Listas con cambios que todavía no subieron a internet. */
+    val pendientes: StateFlow<Set<String>> = repo.pendientes
+
     /** Escucha los datos solo mientras hay alguien con sesión iniciada. */
     private fun <T> conSesion(datos: () -> Flow<List<T>>): Flow<List<T>> =
         usuario.flatMapLatest { if (it == null) flowOf(emptyList()) else datos() }

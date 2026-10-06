@@ -2,10 +2,15 @@ package com.cosmica.cafeteria.data
 
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.update
 import java.time.YearMonth
 import java.time.ZoneId
 
@@ -27,23 +32,46 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     private val ventas = db.collection("ventas")
     private val gastos = db.collection("gastos")
 
-    private fun <T> escuchar(query: Query, convertir: (DocumentSnapshot) -> T?): Flow<List<T>> = callbackFlow {
-        val registro = query.addSnapshotListener { snap, error ->
+    private val _problema = MutableStateFlow<String?>(null)
+    /** Motivo por el que no se pueden leer los datos de internet, o null si anda bien. */
+    val problema: StateFlow<String?> = _problema
+
+    private val consultasConPendientes = MutableStateFlow<Set<String>>(emptySet())
+    /** Nombres de las listas que tienen cambios guardados en el teléfono que todavía no subieron. */
+    val pendientes: StateFlow<Set<String>> = consultasConPendientes
+
+    private fun <T> escuchar(nombre: String, query: Query, convertir: (DocumentSnapshot) -> T?): Flow<List<T>> = callbackFlow {
+        val registro = query.addSnapshotListener(MetadataChanges.INCLUDE) { snap, error ->
             if (error != null) {
-                // Sin permiso (por ejemplo, después de cerrar sesión): mostramos vacío en vez de cerrar la app.
+                _problema.value = when (error.code) {
+                    FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                        "Sin permiso para ver los datos. Revisá que tu correo esté en las reglas de Firestore."
+                    else -> "No se pudo conectar con la base de datos (${error.code})."
+                }
+                // Mostramos vacío en vez de cerrar la app.
                 trySend(emptyList())
                 return@addSnapshotListener
             }
-            if (snap != null) trySend(snap.documents.mapNotNull(convertir))
+            if (snap != null) {
+                if (!snap.metadata.isFromCache) _problema.value = null
+                consultasConPendientes.update {
+                    if (snap.metadata.hasPendingWrites()) it + nombre else it - nombre
+                }
+                trySend(snap.documents.mapNotNull(convertir))
+            }
         }
-        awaitClose { registro.remove() }
+        awaitClose {
+            registro.remove()
+            consultasConPendientes.update { it - nombre }
+        }
     }
 
-    fun menu(): Flow<List<Producto>> = escuchar(productos.whereEqualTo("activo", true), ::aProducto)
+    fun menu(): Flow<List<Producto>> = escuchar("menú", productos.whereEqualTo("activo", true), ::aProducto)
 
     fun ventasDelMes(mes: YearMonth): Flow<List<Venta>> {
         val (d, h) = mes.rango()
         return escuchar(
+            "ventas",
             ventas.whereGreaterThanOrEqualTo("fecha", d).whereLessThanOrEqualTo("fecha", h)
                 .orderBy("fecha", Query.Direction.DESCENDING),
             ::aVenta,
@@ -53,6 +81,7 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     fun gastosDelMes(mes: YearMonth): Flow<List<Gasto>> {
         val (d, h) = mes.rango()
         return escuchar(
+            "gastos",
             gastos.whereGreaterThanOrEqualTo("fecha", d).whereLessThanOrEqualTo("fecha", h)
                 .orderBy("fecha", Query.Direction.DESCENDING),
             ::aGasto,
