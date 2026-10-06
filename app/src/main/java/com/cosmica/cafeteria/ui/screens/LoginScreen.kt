@@ -1,6 +1,8 @@
 package com.cosmica.cafeteria.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +28,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -61,10 +65,10 @@ fun LoginScreen(vm: CafeViewModel) {
     ) {
         Image(
             painter = painterResource(R.drawable.logo),
-            contentDescription = "Logo",
-            modifier = Modifier.size(160.dp),
+            contentDescription = "Cósmica",
+            modifier = Modifier.size(220.dp).clip(RoundedCornerShape(24.dp)).background(Color.White),
         )
-        Text("Cósmica Café", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text("Ingresá con tu cuenta", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
