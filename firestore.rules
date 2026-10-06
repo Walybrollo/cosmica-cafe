@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Solo estos correos pueden ver y cargar datos. Para sumar a alguien, agregá su correo a la lista.
+    function esDelEquipo() {
+      return request.auth != null
+        && request.auth.token.email in ['walyb17@gmail.com', 'micasanz888@gmail.com'];
+    }
+    match /productos/{id} { allow read, write: if esDelEquipo(); }
+    match /ventas/{id}    { allow read, write: if esDelEquipo(); }
+    match /gastos/{id}    { allow read, write: if esDelEquipo(); }
+  }
+}

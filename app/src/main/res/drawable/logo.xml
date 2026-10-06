@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Taza -->
+    <path android:fillColor="#FFE0B2"
+        android:pathData="M34,46h32v14c0,8.8 -7.2,16 -16,16s-16,-7.2 -16,-16z" />
+    <!-- Asa -->
+    <path android:strokeColor="#FFE0B2" android:strokeWidth="4" android:fillColor="#00000000"
+        android:pathData="M66,50h3a6,6 0,0 1,0 12h-4" />
+    <!-- Plato -->
+    <path android:fillColor="#FFE0B2"
+        android:pathData="M30,79h40a2,2 0,0 1,0 4h-40a2,2 0,0 1,0 -4z" />
+    <!-- Estrella -->
+    <path android:fillColor="#FFB300"
+        android:pathData="M50,26l2.6,5.3 5.9,0.9 -4.3,4.1 1,5.8 -5.2,-2.7 -5.2,2.7 1,-5.8 -4.3,-4.1 5.9,-0.9z" />
+</vector>

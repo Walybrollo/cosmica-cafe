@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.CosmicaCafe" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#3E2723</item>
+        <item name="android:windowBackground">#FFF8F3</item>
+    </style>
+</resources>
