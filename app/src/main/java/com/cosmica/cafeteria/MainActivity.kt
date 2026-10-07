@@ -2,6 +2,7 @@ package com.cosmica.cafeteria
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -20,7 +21,8 @@ import com.cosmica.cafeteria.ui.theme.CafeTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Íconos claros en la barra de estado, sobre el cielo negro del encabezado.
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
         val app = application as CafeApp
         if (!app.firebaseConfigurado) {
             setContent {

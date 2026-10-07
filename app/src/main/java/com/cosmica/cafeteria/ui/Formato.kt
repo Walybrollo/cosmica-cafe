@@ -49,5 +49,9 @@ object Formato {
     fun fecha(ms: Long): String =
         Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(fecha)
 
+    private val diaCorto = DateTimeFormatter.ofPattern("EEE d/MM", es)
+
+    fun dia(d: java.time.LocalDate): String = d.format(diaCorto)
+
     fun mes(m: YearMonth): String = m.format(nombreMes).replaceFirstChar { it.uppercase() }
 }

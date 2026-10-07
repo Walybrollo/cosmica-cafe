@@ -3,6 +3,7 @@ package com.cosmica.cafeteria
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.cosmica.cafeteria.data.Categorias
 import com.cosmica.cafeteria.data.Gasto
 import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.Repositorio
@@ -21,7 +22,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
+import java.time.ZoneId
 
 data class Balance(
     val ingresos: Double = 0.0,
@@ -58,6 +62,12 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     val menu: StateFlow<List<Producto>> = estado(
         conSesion { repo.menu() }.map { l -> l.sortedWith(compareBy({ it.categoria }, { it.nombre.lowercase() })) },
         emptyList(),
+    )
+
+    /** Categorías que usan los productos del menú; si el menú está vacío, unas de ejemplo. */
+    val categoriasMenu: StateFlow<List<String>> = estado(
+        menu.map { l -> l.map { it.categoria }.distinct().sortedBy { it.lowercase() }.ifEmpty { Categorias.productos } },
+        Categorias.productos,
     )
 
     /** Mes que se está mirando en Ventas, Gastos y Balance. */
@@ -114,12 +124,17 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
 
     fun vaciarCarrito() = carrito.update { emptyMap() }
 
-    /** Devuelve el total cobrado, o null si el carrito estaba vacío. */
-    fun cobrar(metodoPago: String): Double? {
+    /**
+     * Devuelve el total cobrado, o null si el carrito estaba vacío.
+     * [dia] permite cargar una venta olvidada de otro día; se guarda con la hora actual.
+     */
+    fun cobrar(metodoPago: String, dia: LocalDate? = null): Double? {
         val porId = menu.value.associateBy { it.id }
         val lineas = carrito.value.mapNotNull { (id, c) -> porId[id]?.let { it to c } }.toMap()
         if (lineas.isEmpty()) return null
-        repo.registrarVenta(lineas, metodoPago, nombreUsuario)
+        val fecha = if (dia == null || dia == LocalDate.now()) System.currentTimeMillis()
+        else dia.atTime(LocalTime.now()).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        repo.registrarVenta(lineas, metodoPago, nombreUsuario, fecha)
         vaciarCarrito()
         return lineas.entries.sumOf { (p, c) -> p.precio * c }
     }
@@ -127,6 +142,12 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     fun borrarVenta(v: Venta) = repo.borrarVenta(v)
 
     fun guardarProducto(p: Producto) = repo.guardarProducto(p)
+    fun renombrarCategoria(vieja: String, nueva: String) {
+        val limpia = nueva.trim()
+        if (limpia.isEmpty() || limpia == vieja) return
+        repo.renombrarCategoria(menu.value.filter { it.categoria == vieja }, limpia)
+    }
+
     fun quitarProducto(p: Producto) {
         repo.quitarProducto(p.id)
         carrito.update { it - p.id }

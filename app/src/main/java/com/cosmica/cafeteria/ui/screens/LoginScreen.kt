@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.cosmica.cafeteria.CafeViewModel
 import com.cosmica.cafeteria.R
+import com.cosmica.cafeteria.ui.CieloEspacial
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,39 +62,46 @@ fun LoginScreen(vm: CafeViewModel) {
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-    ) {
-        Image(
-            painter = painterResource(R.drawable.logo),
-            contentDescription = "Cósmica",
-            modifier = Modifier.size(220.dp).clip(RoundedCornerShape(24.dp)).background(Color.White),
-        )
-        Text("Ingresá con tu cuenta", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Correo") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = clave,
-            onValueChange = { clave = it },
-            label = { Text("Contraseña") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { entrar() }),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(onClick = { entrar() }, enabled = !entrando, modifier = Modifier.fillMaxWidth()) {
-            if (entrando) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            else Text("Entrar")
+    Box(Modifier.fillMaxSize()) {
+        CieloEspacial(Modifier.matchParentSize(), cantidadEstrellas = 220)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).systemBarsPadding().imePadding().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.logo),
+                contentDescription = "Cósmica",
+                modifier = Modifier.size(200.dp).clip(RoundedCornerShape(24.dp)).background(Color.White),
+            )
+            Surface(shape = RoundedCornerShape(20.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Ingresá con tu cuenta", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Correo") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = clave,
+                        onValueChange = { clave = it },
+                        label = { Text("Contraseña") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { entrar() }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Button(onClick = { entrar() }, enabled = !entrando, modifier = Modifier.fillMaxWidth()) {
+                        if (entrando) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Text("Entrar")
+                    }
+                }
+            }
         }
     }
 }

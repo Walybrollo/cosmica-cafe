@@ -17,9 +17,16 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -33,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,6 +54,9 @@ import com.cosmica.cafeteria.data.Categorias
 import com.cosmica.cafeteria.ui.Formato
 import com.cosmica.cafeteria.ui.Opciones
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 private const val TODOS = "Todos"
 
@@ -56,6 +67,10 @@ fun VenderScreen(vm: CafeViewModel, snackbar: SnackbarHostState, modifier: Modif
     var categoria by rememberSaveable { mutableStateOf(TODOS) }
     var metodo by rememberSaveable { mutableStateOf(Categorias.metodosPago.first()) }
     val scope = rememberCoroutineScope()
+    // Día de la venta como "epoch day"; null = hoy.
+    var diaElegido by rememberSaveable { mutableStateOf<Long?>(null) }
+    var eligiendoDia by remember { mutableStateOf(false) }
+    val dia = diaElegido?.let { LocalDate.ofEpochDay(it) }
 
     val categorias = listOf(TODOS) + menu.map { it.categoria }.distinct()
     val visibles = if (categoria == TODOS) menu else menu.filter { it.categoria == categoria }
@@ -134,11 +149,19 @@ fun VenderScreen(vm: CafeViewModel, snackbar: SnackbarHostState, modifier: Modif
                         }
                     }
                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    FilterChip(
+                        selected = dia != null,
+                        onClick = { eligiendoDia = true },
+                        leadingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                        label = { Text(if (dia == null) "Fecha: hoy" else "Fecha: ${Formato.dia(dia)} (venta atrasada)") },
+                    )
                     Opciones(Categorias.metodosPago, metodo) { metodo = it }
                     Button(
                         onClick = {
-                            vm.cobrar(metodo)?.let { cobrado ->
-                                scope.launch { snackbar.showSnackbar("Venta registrada: ${Formato.dinero(cobrado)}") }
+                            vm.cobrar(metodo, dia)?.let { cobrado ->
+                                val cuando = if (dia == null) "" else " el ${Formato.dia(dia)}"
+                                diaElegido = null
+                                scope.launch { snackbar.showSnackbar("Venta registrada$cuando: ${Formato.dinero(cobrado)}") }
                             }
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -148,5 +171,43 @@ fun VenderScreen(vm: CafeViewModel, snackbar: SnackbarHostState, modifier: Modif
                 }
             }
         }
+    }
+
+    if (eligiendoDia) {
+        ElegirDia(
+            inicial = dia ?: LocalDate.now(),
+            alCerrar = { eligiendoDia = false },
+            alElegir = { d ->
+                diaElegido = if (d == LocalDate.now()) null else d.toEpochDay()
+                eligiendoDia = false
+            },
+        )
+    }
+}
+
+/** Calendario para elegir el día de una venta; no deja elegir días futuros. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ElegirDia(inicial: LocalDate, alCerrar: () -> Unit, alElegir: (LocalDate) -> Unit) {
+    // El calendario trabaja en milisegundos UTC a medianoche.
+    val hoyUtc = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    val estado = rememberDatePickerState(
+        initialSelectedDateMillis = inicial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= hoyUtc
+        },
+    )
+    DatePickerDialog(
+        onDismissRequest = alCerrar,
+        confirmButton = {
+            TextButton(onClick = {
+                estado.selectedDateMillis?.let { ms ->
+                    alElegir(Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate())
+                } ?: alCerrar()
+            }) { Text("Listo") }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cancelar") } },
+    ) {
+        DatePicker(state = estado, title = { Text("¿Qué día fue la venta?", Modifier.padding(start = 24.dp, top = 16.dp)) })
     }
 }

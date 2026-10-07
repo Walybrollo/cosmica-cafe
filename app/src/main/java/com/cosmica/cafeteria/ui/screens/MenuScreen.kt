@@ -12,10 +12,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -31,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cosmica.cafeteria.CafeViewModel
-import com.cosmica.cafeteria.data.Categorias
 import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.ganancia
 import com.cosmica.cafeteria.data.margen
@@ -46,17 +47,28 @@ fun MenuScreen(vm: CafeViewModel, modifier: Modifier) {
     val menu by vm.menu.collectAsState()
     var editando by remember { mutableStateOf<Producto?>(null) }
     var aQuitar by remember { mutableStateOf<Producto?>(null) }
+    var categoriaARenombrar by remember { mutableStateOf<String?>(null) }
+    val categorias by vm.categoriasMenu.collectAsState()
 
     Box(modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp)) {
             menu.groupBy { it.categoria }.forEach { (categoria, productos) ->
                 item(key = "cat-$categoria") {
-                    Text(
-                        categoria,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                    )
+                    Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            categoria,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { categoriaARenombrar = categoria }) {
+                            Icon(
+                                Icons.Filled.Edit,
+                                contentDescription = "Cambiar nombre de la categoría",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
                 items(productos, key = { it.id }) { p ->
                     Card(onClick = { editando = p }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -77,7 +89,7 @@ fun MenuScreen(vm: CafeViewModel, modifier: Modifier) {
         }
         ExtendedFloatingActionButton(
             onClick = {
-                editando = Producto(nombre = "", categoria = Categorias.productos.first(), precio = 0.0, costo = 0.0)
+                editando = Producto(nombre = "", categoria = categorias.first(), precio = 0.0, costo = 0.0)
             },
             icon = { Icon(Icons.Filled.Add, contentDescription = null) },
             text = { Text("Agregar producto") },
@@ -88,9 +100,19 @@ fun MenuScreen(vm: CafeViewModel, modifier: Modifier) {
     editando?.let { p ->
         DialogoProducto(
             producto = p,
+            categorias = categorias,
             alCerrar = { editando = null },
             alGuardar = { vm.guardarProducto(it); editando = null },
             alQuitar = { aQuitar = p; editando = null },
+        )
+    }
+
+    categoriaARenombrar?.let { c ->
+        DialogoCategoria(
+            actual = c,
+            otras = categorias - c,
+            alCerrar = { categoriaARenombrar = null },
+            alGuardar = { vm.renombrarCategoria(c, it); categoriaARenombrar = null },
         )
     }
 
@@ -106,15 +128,17 @@ fun MenuScreen(vm: CafeViewModel, modifier: Modifier) {
 }
 
 @Composable
-private fun DialogoProducto(producto: Producto, alCerrar: () -> Unit, alGuardar: (Producto) -> Unit, alQuitar: () -> Unit) {
+private fun DialogoProducto(producto: Producto, categorias: List<String>, alCerrar: () -> Unit, alGuardar: (Producto) -> Unit, alQuitar: () -> Unit) {
     val nuevo = producto.id.isEmpty()
     var nombre by remember { mutableStateOf(producto.nombre) }
     var categoria by remember { mutableStateOf(producto.categoria) }
+    var categoriaNueva by remember { mutableStateOf<String?>(null) }
     var precio by remember { mutableStateOf(if (nuevo) "" else Formato.paraEditar(producto.precio)) }
     var costo by remember { mutableStateOf(if (nuevo) "" else Formato.paraEditar(producto.costo)) }
     val precioNum = Formato.leerNumero(precio)
     val costoNum = Formato.leerNumero(costo)
-    val valido = nombre.isNotBlank() && precioNum != null && costoNum != null
+    val categoriaFinal = categoriaNueva?.trim() ?: categoria
+    val valido = nombre.isNotBlank() && precioNum != null && costoNum != null && categoriaFinal.isNotBlank()
 
     AlertDialog(
         onDismissRequest = alCerrar,
@@ -129,7 +153,21 @@ private fun DialogoProducto(producto: Producto, alCerrar: () -> Unit, alGuardar:
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text("Categoría", style = MaterialTheme.typography.labelMedium)
-                Opciones(Categorias.productos, categoria) { categoria = it }
+                Opciones(
+                    (categorias + producto.categoria).distinct() + NUEVA,
+                    if (categoriaNueva != null) NUEVA else categoria,
+                ) {
+                    if (it == NUEVA) categoriaNueva = "" else { categoria = it; categoriaNueva = null }
+                }
+                categoriaNueva?.let { texto ->
+                    OutlinedTextField(
+                        value = texto,
+                        onValueChange = { categoriaNueva = it },
+                        label = { Text("Nombre de la categoría nueva") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 CampoNumero(precio, "Precio de venta") { precio = it }
                 CampoNumero(costo, "Costo (lo que te sale hacerlo)") { costo = it }
                 if (precioNum != null && costoNum != null) {
@@ -150,7 +188,7 @@ private fun DialogoProducto(producto: Producto, alCerrar: () -> Unit, alGuardar:
                     alGuardar(
                         producto.copy(
                             nombre = nombre.trim(),
-                            categoria = categoria,
+                            categoria = categoriaFinal,
                             precio = precioNum ?: 0.0,
                             costo = costoNum ?: 0.0,
                         )
@@ -164,5 +202,41 @@ private fun DialogoProducto(producto: Producto, alCerrar: () -> Unit, alGuardar:
                 TextButton(onClick = alCerrar) { Text("Cancelar") }
             }
         },
+    )
+}
+
+private const val NUEVA = "+ Nueva"
+
+@Composable
+private fun DialogoCategoria(actual: String, otras: List<String>, alCerrar: () -> Unit, alGuardar: (String) -> Unit) {
+    var nombre by remember { mutableStateOf(actual) }
+    val seJunta = otras.any { it.equals(nombre.trim(), ignoreCase = true) }
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        title = { Text("Categoría \"$actual\"") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = nombre,
+                    onValueChange = { nombre = it },
+                    label = { Text("Nuevo nombre") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    if (seJunta) "Ya existe esa categoría: los productos de \"$actual\" pasan a ella."
+                    else "Se cambia en todos los productos de esta categoría. " +
+                        "Para borrarla, poné el nombre de otra categoría y se juntan.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = nombre.isNotBlank() && nombre.trim() != actual,
+                onClick = { alGuardar(otras.firstOrNull { it.equals(nombre.trim(), ignoreCase = true) } ?: nombre.trim()) },
+            ) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cancelar") } },
     )
 }

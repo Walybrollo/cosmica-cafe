@@ -56,7 +56,7 @@ fun AppCafe(vm: CafeViewModel) {
     val usuario by vm.usuario.collectAsState()
     val u = usuario
     if (u == null) {
-        Surface(Modifier.fillMaxSize()) { LoginScreen(vm) }
+        LoginScreen(vm)
         return
     }
     var actual by rememberSaveable { mutableIntStateOf(0) }
@@ -65,23 +65,7 @@ fun AppCafe(vm: CafeViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (seccion == Seccion.Vender) "Cósmica Café" else seccion.titulo) },
-                actions = {
-                    Text(u.nombre, color = MaterialTheme.colorScheme.onPrimary)
-                    IconButton(onClick = { vm.salir() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "Cerrar sesión",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            )
+            EncabezadoEspacial(seccion.titulo, u.nombre) { vm.salir() }
         },
         bottomBar = {
             NavigationBar {

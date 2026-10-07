@@ -101,16 +101,21 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
         )
     }
 
+    /** Cambia la categoría de todos los productos que la usan (también sirve para juntar dos categorías). */
+    fun renombrarCategoria(productosDeLaCategoria: List<Producto>, nueva: String) {
+        productosDeLaCategoria.forEach { productos.document(it.id).update("categoria", nueva) }
+    }
+
     fun quitarProducto(id: String) {
         productos.document(id).update("activo", false)
     }
 
-    fun registrarVenta(carrito: Map<Producto, Int>, metodoPago: String, vendedor: String) {
+    fun registrarVenta(carrito: Map<Producto, Int>, metodoPago: String, vendedor: String, fecha: Long) {
         val lineas = carrito.filterValues { it > 0 }
         if (lineas.isEmpty()) return
         ventas.document().set(
             mapOf(
-                "fecha" to System.currentTimeMillis(),
+                "fecha" to fecha,
                 "total" to lineas.entries.sumOf { (p, c) -> p.precio * c },
                 "costoTotal" to lineas.entries.sumOf { (p, c) -> p.costo * c },
                 "metodoPago" to metodoPago,
