@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,11 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,10 +37,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cosmica.cafeteria.R
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
@@ -141,30 +148,45 @@ private fun DrawScope.dibujarCometa(progreso: Float) {
     drawCircle(Color(0x55BFE3FF), radius = 5.dp.toPx(), center = cabeza)
 }
 
-/** Encabezado de la app con el cielo de fondo, el nombre del local y el usuario. */
+/** Encabezado de la app con el cielo de fondo, el logo, el nombre del local y el botón de salir. */
 @Composable
 fun EncabezadoEspacial(seccion: String, usuario: String, alSalir: () -> Unit) {
+    var confirmarSalida by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         CieloEspacial(Modifier.matchParentSize())
         Row(
-            Modifier.statusBarsPadding().fillMaxWidth().height(68.dp).padding(start = 16.dp, end = 4.dp),
+            Modifier.statusBarsPadding().fillMaxWidth().height(76.dp).padding(start = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
+            Image(
+                painter = painterResource(R.drawable.logo),
+                contentDescription = null,
+                modifier = Modifier.height(60.dp),
+            )
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(
-                    "CÓSMICA",
+                    "Cósmica Coffee",
                     color = Color.White,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 24.sp,
-                    letterSpacing = 3.sp,
+                    fontSize = 22.sp,
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
                 )
                 Text(seccion, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp)
             }
-            Text(usuario, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
-            IconButton(onClick = alSalir) {
+            IconButton(onClick = { confirmarSalida = true }) {
                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Cerrar sesión", tint = Color.White)
             }
         }
+    }
+    if (confirmarSalida) {
+        AlertDialog(
+            onDismissRequest = { confirmarSalida = false },
+            title = { Text("¿Cerrar sesión?") },
+            text = { Text("Estás usando la app como $usuario.") },
+            confirmButton = { TextButton(onClick = { confirmarSalida = false; alSalir() }) { Text("Cerrar sesión") } },
+            dismissButton = { TextButton(onClick = { confirmarSalida = false }) { Text("Cancelar") } },
+        )
     }
 }
