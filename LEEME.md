@@ -1,4 +1,4 @@
-# Cósmica Café
+# Cósmica Coffee
 
 App Android para manejar una cafetería al paso entre varias personas. Cada uno entra con su correo y
 contraseña, y todos ven los mismos datos al instante (se guardan en Firebase, de Google).
