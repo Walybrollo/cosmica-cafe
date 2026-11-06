@@ -103,6 +103,24 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         Balance(),
     )
 
+    /** Ventas de los últimos 28 días, sin importar el mes que se esté mirando. */
+    private val recientes: StateFlow<List<Venta>> = estado(
+        conSesion { repo.ventasDesde(System.currentTimeMillis() - 28L * 24 * 60 * 60 * 1000) },
+        emptyList(),
+    )
+
+    /**
+     * Los productos que más se venden a esta hora (una hora antes y después), según los últimos 28 días.
+     * Si todavía hay pocas ventas a esta hora, se completa con lo más vendido de todo el día.
+     */
+    val masVendidos: StateFlow<List<Producto>> = estado(
+        combine(menu, recientes) { m, v -> masVendidosAhora(m, v, LocalTime.now().hour) },
+        emptyList(),
+    )
+
+    /** La venta más reciente, para poder repetirla con un toque. */
+    val ultimaVenta: StateFlow<Venta?> = estado(recientes.map { it.firstOrNull() }, null)
+
     /** Carrito de la venta en curso: id de producto -> cantidad. */
     val carrito = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -123,6 +141,16 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     }
 
     fun vaciarCarrito() = carrito.update { emptyMap() }
+
+    /** Suma al carrito lo mismo que tenía [v] (solo los productos que siguen en el menú). */
+    fun repetir(v: Venta) {
+        val activos = menu.value.map { it.id }.toSet()
+        carrito.update { actual ->
+            v.items.filter { it.productoId in activos }.fold(actual) { c, i ->
+                c + (i.productoId to (c[i.productoId] ?: 0) + i.cantidad)
+            }
+        }
+    }
 
     /**
      * Devuelve el total cobrado, o null si el carrito estaba vacío.
@@ -157,6 +185,23 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     fun borrarGasto(g: Gasto) = repo.borrarGasto(g)
 
     companion object {
+        private const val CANTIDAD_SUGERIDOS = 6
+
+        fun masVendidosAhora(menu: List<Producto>, ventas: List<Venta>, hora: Int): List<Producto> {
+            val porId = menu.associateBy { it.id }
+            val zona = ZoneId.systemDefault()
+            fun ranking(l: List<Venta>) = l.flatMap { it.items }
+                .groupBy { it.productoId }
+                .mapValues { (_, items) -> items.sumOf { it.cantidad } }
+                .entries.sortedByDescending { it.value }
+                .mapNotNull { porId[it.key] }
+            val aEstaHora = ventas.filter {
+                val h = java.time.Instant.ofEpochMilli(it.fecha).atZone(zona).hour
+                kotlin.math.abs(h - hora) <= 1
+            }
+            return (ranking(aEstaHora) + ranking(ventas)).distinct().take(CANTIDAD_SUGERIDOS)
+        }
+
         fun factory(repo: Repositorio, sesion: Sesion) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = CafeViewModel(repo, sesion) as T

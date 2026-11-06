@@ -78,6 +78,13 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
         )
     }
 
+    /** Ventas desde una fecha hasta hoy (para sugerir lo más vendido y repetir la última). */
+    fun ventasDesde(desde: Long): Flow<List<Venta>> = escuchar(
+        "ventas",
+        ventas.whereGreaterThanOrEqualTo("fecha", desde).orderBy("fecha", Query.Direction.DESCENDING),
+        ::aVenta,
+    )
+
     fun gastosDelMes(mes: YearMonth): Flow<List<Gasto>> {
         val (d, h) = mes.rango()
         return escuchar(

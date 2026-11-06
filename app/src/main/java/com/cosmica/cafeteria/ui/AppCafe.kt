@@ -17,6 +17,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.graphics.Color
+import com.cosmica.cafeteria.ui.theme.Ambar
+import com.cosmica.cafeteria.ui.theme.BarraInferior
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
@@ -68,13 +72,20 @@ fun AppCafe(vm: CafeViewModel) {
             EncabezadoEspacial(seccion.titulo, u.nombre) { vm.salir() }
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = BarraInferior) {
                 Seccion.entries.forEachIndexed { i, s ->
                     NavigationBarItem(
                         selected = i == actual,
                         onClick = { actual = i },
                         icon = { Icon(s.icono, contentDescription = null) },
                         label = { Text(s.titulo) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Ambar,
+                            selectedTextColor = Ambar,
+                            indicatorColor = Ambar.copy(alpha = 0.14f),
+                            unselectedIconColor = Color(0xFF6D76A0),
+                            unselectedTextColor = Color(0xFF6D76A0),
+                        ),
                     )
                 }
             }

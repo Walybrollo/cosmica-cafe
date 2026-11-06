@@ -167,13 +167,13 @@ fun EncabezadoEspacial(seccion: String, usuario: String, alSalir: () -> Unit) {
                 Text(
                     "Cósmica Coffee",
                     color = Color.White,
-                    fontFamily = FontFamily.Serif,
+                    fontFamily = com.cosmica.cafeteria.ui.theme.Marca,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    letterSpacing = 1.sp,
+                    fontSize = 21.sp,
+                    letterSpacing = 0.5.sp,
                     maxLines = 1,
                 )
-                Text(seccion, color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp)
+                Text(seccion, color = com.cosmica.cafeteria.ui.theme.TextoSuave, fontSize = 13.sp)
             }
             IconButton(onClick = { confirmarSalida = true }) {
                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Cerrar sesión", tint = Color.White)

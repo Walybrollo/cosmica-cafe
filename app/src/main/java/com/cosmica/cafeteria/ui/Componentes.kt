@@ -10,6 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.cosmica.cafeteria.ui.theme.Ambar
+import com.cosmica.cafeteria.ui.theme.SobreAmbar
+import com.cosmica.cafeteria.ui.theme.Tarjeta
+import com.cosmica.cafeteria.ui.theme.TextoSuave
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +58,19 @@ fun Opciones(opciones: List<String>, elegida: String, modifier: Modifier = Modif
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         opciones.forEach { o ->
-            FilterChip(selected = o == elegida, onClick = { alElegir(o) }, label = { Text(o) })
+            FilterChip(
+                selected = o == elegida,
+                onClick = { alElegir(o) },
+                label = { Text(o, fontWeight = FontWeight.SemiBold) },
+                shape = RoundedCornerShape(50),
+                border = null,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = Tarjeta,
+                    labelColor = TextoSuave,
+                    selectedContainerColor = Ambar,
+                    selectedLabelColor = SobreAmbar,
+                ),
+            )
         }
     }
 }
