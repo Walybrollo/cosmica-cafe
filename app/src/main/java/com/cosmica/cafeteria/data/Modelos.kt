@@ -35,6 +35,7 @@ data class Venta(
 )
 
 val Venta.subtotal: Double get() = items.sumOf { it.cantidad * it.precioUnitario }
+val Venta.esConsumo: Boolean get() = metodoPago == Categorias.CONSUMO
 
 /** Cierre de caja de un día. El id es la fecha (2026-11-07), así hay uno solo por día. */
 data class Cierre(
@@ -92,5 +93,8 @@ object Categorias {
     val productos = listOf("Cafés", "Bebidas", "Comidas", "Dulces", "Otros")
     val gastos = listOf("Insumos", "Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
     val metodosPago = listOf("Efectivo", "Tarjeta", "Transferencia")
+    /** Lo que consume el equipo (desayunos, meriendas): no es venta, se cuenta a costo. */
+    const val CONSUMO = "Consumo del equipo"
+    val metodosCobro = metodosPago + CONSUMO
     val unidades = listOf("unidades", "kg", "litros", "paquetes")
 }

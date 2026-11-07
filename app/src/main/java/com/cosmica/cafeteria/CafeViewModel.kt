@@ -14,6 +14,8 @@ import com.cosmica.cafeteria.data.ResumenProducto
 import com.cosmica.cafeteria.data.Sesion
 import com.cosmica.cafeteria.data.Usuario
 import com.cosmica.cafeteria.data.Venta
+import com.cosmica.cafeteria.data.esConsumo
+import com.cosmica.cafeteria.data.subtotal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,9 +54,14 @@ data class Balance(
     /** Hora del día -> cantidad de ventas. */
     val porHora: Map<Int, Int> = emptyMap(),
     val descuentos: Double = 0.0,
+    /** Consumo del equipo a costo, y lo que sería a precio de venta. */
+    val consumoEquipo: Double = 0.0,
+    val consumoAPrecio: Double = 0.0,
+    val consumosPorPersona: Map<String, Pair<Int, Double>> = emptyMap(),
+    val consumoProductos: List<Pair<String, Int>> = emptyList(),
 ) {
     val gananciaBruta: Double get() = ingresos - costoMercaderia
-    val gananciaNeta: Double get() = gananciaBruta - gastos
+    val gananciaNeta: Double get() = gananciaBruta - gastos - consumoEquipo
     val ticketPromedio: Double get() = if (cantidadVentas > 0) ingresos / cantidadVentas else 0.0
 }
 
@@ -131,18 +138,18 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
      * Si todavía hay pocas ventas a esta hora, se completa con lo más vendido de todo el día.
      */
     val masVendidos: StateFlow<List<Producto>> = estado(
-        combine(menu, recientes) { m, v -> masVendidosAhora(m, v, LocalTime.now().hour) },
+        combine(menu, recientes) { m, v -> masVendidosAhora(m, v.filter { !it.esConsumo }, LocalTime.now().hour) },
         emptyList(),
     )
 
     /** La venta más reciente, para poder repetirla con un toque. */
-    val ultimaVenta: StateFlow<Venta?> = estado(recientes.map { it.firstOrNull() }, null)
+    val ultimaVenta: StateFlow<Venta?> = estado(recientes.map { l -> l.firstOrNull { !it.esConsumo } }, null)
 
     /** Ventas de hoy, para el cierre de caja (no depende del mes que se esté mirando). */
     val ventasHoy: StateFlow<List<Venta>> = estado(
         recientes.map { l ->
             val inicio = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            l.filter { it.fecha >= inicio }
+            l.filter { it.fecha >= inicio && !it.esConsumo }
         },
         emptyList(),
     )
@@ -231,7 +238,8 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         repo.registrarVenta(lineas, metodoPago, nombreUsuario, fecha)
         descontarStock(lineas.mapKeys { it.key.id })
         vaciarCarrito()
-        return lineas.entries.sumOf { (p, c) -> p.precio * c }
+        // Para el consumo del equipo se devuelve lo que costó.
+        return lineas.entries.sumOf { (p, c) -> (if (metodoPago == Categorias.CONSUMO) p.costo else p.precio) * c }
     }
 
     fun borrarVenta(v: Venta) {
@@ -288,8 +296,10 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         private const val DIA_MS = 24L * 60 * 60 * 1000
         private const val DIAS_CONSUMO = 30L
 
-        fun armarBalance(v: List<Venta>, g: List<Gasto>): Balance {
+        fun armarBalance(todas: List<Venta>, g: List<Gasto>): Balance {
             val zona = ZoneId.systemDefault()
+            val v = todas.filter { !it.esConsumo }
+            val consumos = todas.filter { it.esConsumo }
             fun Long.hora() = Instant.ofEpochMilli(this).atZone(zona)
             return Balance(
                 ingresos = v.sumOf { it.total },
@@ -311,6 +321,12 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
                 porDia = v.groupBy { it.fecha.hora().dayOfMonth }.mapValues { (_, l) -> l.sumOf { it.total } },
                 porHora = v.groupBy { it.fecha.hora().hour }.mapValues { (_, l) -> l.size },
                 descuentos = v.sumOf { it.descuento },
+                consumoEquipo = consumos.sumOf { it.costoTotal },
+                consumoAPrecio = consumos.sumOf { it.subtotal },
+                consumosPorPersona = consumos.groupBy { it.vendedor.ifBlank { "Sin nombre" } }
+                    .mapValues { (_, l) -> l.size to l.sumOf { it.costoTotal } },
+                consumoProductos = consumos.flatMap { it.items }.groupBy { it.nombreProducto }
+                    .map { (n, l) -> n to l.sumOf { it.cantidad } }.sortedByDescending { it.second },
             )
         }
 

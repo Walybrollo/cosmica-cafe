@@ -8,6 +8,7 @@ import com.cosmica.cafeteria.data.Cierre
 import com.cosmica.cafeteria.data.Gasto
 import com.cosmica.cafeteria.data.Venta
 import com.cosmica.cafeteria.data.subtotal
+import com.cosmica.cafeteria.data.esConsumo
 import java.io.File
 import java.io.OutputStream
 import java.time.Instant
@@ -142,16 +143,24 @@ object Excel {
             add(listOf("Costo de lo vendido", b.costoMercaderia))
             add(listOf("Ganancia bruta", b.gananciaBruta))
             add(listOf("Gastos", b.gastos))
+            if (b.consumoEquipo > 0) add(listOf("Consumo del equipo (a costo)", b.consumoEquipo))
             add(listOf("Ganancia neta", b.gananciaNeta))
             add(listOf("Ticket promedio", b.ticketPromedio))
             b.porMetodoPago.forEach { (m, v) -> add(listOf("Cobrado en $m", v)) }
         }
         val hojaVentas = listOf(listOf("Fecha", "Hora", "Productos", "Medio de pago", "Vendió", "Subtotal", "Descuento", "Total", "Costo", "Ganancia")) +
-            ventas.sortedBy { it.fecha }.map { v ->
+            ventas.filter { !it.esConsumo }.sortedBy { it.fecha }.map { v ->
                 listOf(
                     v.fecha.f().format(fecha), v.fecha.f().format(hora),
                     v.items.joinToString(", ") { "${it.cantidad} ${it.nombreProducto}" },
                     v.metodoPago, v.vendedor, v.subtotal, v.descuento, v.total, v.costoTotal, v.total - v.costoTotal,
+                )
+            }
+        val hojaConsumo = listOf(listOf("Fecha", "Hora", "Quién", "Productos", "Costo", "A precio de venta")) +
+            ventas.filter { it.esConsumo }.sortedBy { it.fecha }.map { v ->
+                listOf(
+                    v.fecha.f().format(fecha), v.fecha.f().format(hora), v.vendedor,
+                    v.items.joinToString(", ") { "${it.cantidad} ${it.nombreProducto}" }, v.costoTotal, v.subtotal,
                 )
             }
         val hojaProductos = listOf(listOf("Producto", "Cantidad", "Vendido", "Ganancia")) +
@@ -167,6 +176,7 @@ object Excel {
             Hoja("Ventas", hojaVentas),
             Hoja("Productos", hojaProductos),
             Hoja("Gastos", hojaGastos),
+            Hoja("Consumo del equipo", hojaConsumo),
             Hoja("Cierres de caja", hojaCierres),
         )
     }

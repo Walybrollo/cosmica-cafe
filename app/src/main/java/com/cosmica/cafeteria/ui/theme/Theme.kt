@@ -21,6 +21,9 @@ val TextoSuave = Color(0xFF9AA3C7)
 val Ambar = Color(0xFFF2B35B)
 val SobreAmbar = Color(0xFF1A1204)
 val BarraInferior = Color(0xFF0B0F24)
+/** Color del consumo del equipo. */
+val Celeste = Color(0xFF8EC5FF)
+val SobreCeleste = Color(0xFF071230)
 
 val Ganancia = Color(0xFF6FD08C)
 val Perdida = Color(0xFFFF7A7A)

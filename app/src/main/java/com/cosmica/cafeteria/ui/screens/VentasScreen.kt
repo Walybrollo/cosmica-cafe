@@ -49,6 +49,8 @@ import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.Venta
 import com.cosmica.cafeteria.data.VentaItem
 import com.cosmica.cafeteria.data.subtotal
+import com.cosmica.cafeteria.data.esConsumo
+import com.cosmica.cafeteria.ui.theme.Celeste
 import com.cosmica.cafeteria.ui.CampoNumero
 import com.cosmica.cafeteria.ui.Formato
 import com.cosmica.cafeteria.ui.Opciones
@@ -70,13 +72,23 @@ fun VentasScreen(vm: CafeViewModel, modifier: Modifier) {
     var cerrandoCaja by remember { mutableStateOf(false) }
 
     val inicioHoy = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    val hoy = ventas.filter { it.fecha >= inicioHoy }
+    val reales = ventas.filter { !it.esConsumo }
+    val hoy = reales.filter { it.fecha >= inicioHoy }
+    val consumoHoy = ventas.filter { it.esConsumo && it.fecha >= inicioHoy }.sumOf { it.costoTotal }
 
     Column(modifier.fillMaxSize()) {
         SelectorMes(vm)
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             Dato("Hoy", Formato.dinero(hoy.sumOf { it.total }), "${hoy.size} ventas", Modifier.weight(1f))
-            Dato("En el mes", Formato.dinero(ventas.sumOf { it.total }), "${ventas.size} ventas", Modifier.weight(1f))
+            Dato("En el mes", Formato.dinero(reales.sumOf { it.total }), "${reales.size} ventas", Modifier.weight(1f))
+        }
+        if (consumoHoy > 0) {
+            Text(
+                "Consumo del equipo hoy: ${Formato.dinero(consumoHoy)} a costo",
+                Modifier.padding(horizontal = 16.dp),
+                color = Celeste,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         TarjetaCierre(cierreHoy) { cerrandoCaja = true }
         if (ventas.isEmpty()) {
@@ -97,11 +109,18 @@ fun VentasScreen(vm: CafeViewModel, modifier: Modifier) {
                                 color = TextoSuave,
                             )
                             Text(v.items.joinToString { "${it.cantidad}× ${it.nombreProducto}" })
+                            if (v.esConsumo) {
+                                Text("CONSUMO DEL EQUIPO", style = MaterialTheme.typography.labelSmall, color = Celeste, fontWeight = FontWeight.Bold)
+                            }
                             if (v.descuento > 0) {
                                 Text("Descuento ${Formato.dinero(v.descuento)}", style = MaterialTheme.typography.bodySmall, color = Ambar)
                             }
                         }
-                        Text(Formato.dinero(v.total), fontWeight = FontWeight.Bold)
+                        Text(
+                            Formato.dinero(if (v.esConsumo) v.costoTotal else v.total),
+                            fontWeight = FontWeight.Bold,
+                            color = if (v.esConsumo) Celeste else MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 }
             }
@@ -276,14 +295,21 @@ private fun DialogoEditarVenta(
                 }
                 HorizontalDivider()
                 Text("Medio de pago", style = MaterialTheme.typography.labelMedium)
-                Opciones(Categorias.metodosPago, metodo) { metodo = it }
-                Text("Descuento", style = MaterialTheme.typography.labelMedium)
-                Opciones(listOf("$", "%"), if (enPorcentaje) "%" else "$") { enPorcentaje = it == "%" }
-                CampoNumero(descuento, if (enPorcentaje) "Porcentaje" else "Monto") { descuento = it }
-                Row { Text("Subtotal", Modifier.weight(1f), color = TextoSuave); Text(Formato.dinero(subtotal)) }
-                Row {
-                    Text("Total", Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                    Text(Formato.dinero(subtotal - (descPlata ?: 0.0)), fontWeight = FontWeight.Bold, color = Ambar)
+                Opciones(Categorias.metodosCobro, metodo) { metodo = it }
+                if (metodo != Categorias.CONSUMO) Text("Descuento", style = MaterialTheme.typography.labelMedium)
+                if (metodo == Categorias.CONSUMO) {
+                    Row {
+                        Text("Costo (consumo del equipo)", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                        Text(Formato.dinero(editada.items.sumOf { it.cantidad * it.costoUnitario }), fontWeight = FontWeight.Bold, color = Celeste)
+                    }
+                } else {
+                    Opciones(listOf("$", "%"), if (enPorcentaje) "%" else "$") { enPorcentaje = it == "%" }
+                    CampoNumero(descuento, if (enPorcentaje) "Porcentaje" else "Monto") { descuento = it }
+                    Row { Text("Subtotal", Modifier.weight(1f), color = TextoSuave); Text(Formato.dinero(subtotal)) }
+                    Row {
+                        Text("Total", Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                        Text(Formato.dinero(subtotal - (descPlata ?: 0.0)), fontWeight = FontWeight.Bold, color = Ambar)
+                    }
                 }
                 TextButton(onClick = { confirmarBorrar = true }) { Text("Borrar venta", color = Perdida) }
             }

@@ -200,12 +200,14 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     fun guardarVenta(v: Venta) {
         val items = v.items.filter { it.cantidad > 0 }
         val subtotal = items.sumOf { it.cantidad * it.precioUnitario }
-        val descuento = v.descuento.coerceIn(0.0, subtotal)
+        // El consumo del equipo no se cobra: total 0, pero se guarda el costo.
+        val consumo = v.metodoPago == Categorias.CONSUMO
+        val descuento = if (consumo) 0.0 else v.descuento.coerceIn(0.0, subtotal)
         val doc = if (v.id.isEmpty()) ventas.document() else ventas.document(v.id)
         doc.set(
             mapOf(
                 "fecha" to v.fecha,
-                "total" to subtotal - descuento,
+                "total" to if (consumo) 0.0 else subtotal - descuento,
                 "descuento" to descuento,
                 "costoTotal" to items.sumOf { it.cantidad * it.costoUnitario },
                 "metodoPago" to v.metodoPago,

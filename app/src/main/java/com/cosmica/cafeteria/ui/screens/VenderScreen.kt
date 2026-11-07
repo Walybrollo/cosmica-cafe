@@ -39,6 +39,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,6 +78,8 @@ import com.cosmica.cafeteria.ui.Formato
 import com.cosmica.cafeteria.ui.Opciones
 import com.cosmica.cafeteria.ui.theme.Ambar
 import com.cosmica.cafeteria.ui.theme.Borde
+import com.cosmica.cafeteria.ui.theme.Celeste
+import com.cosmica.cafeteria.ui.theme.SobreCeleste
 import com.cosmica.cafeteria.ui.theme.SobreAmbar
 import com.cosmica.cafeteria.ui.theme.Tarjeta
 import com.cosmica.cafeteria.ui.theme.Tarjeta2
@@ -386,6 +389,9 @@ private fun HojaCobro(
     var eligiendoDia by remember { mutableStateOf(false) }
     val dia = diaElegido?.let { LocalDate.ofEpochDay(it) }
     val estado = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val consumo = metodo == Categorias.CONSUMO
+    val costo = lineas.sumOf { it.costo * (carrito[it.id] ?: 0) }
+    val quien = vm.usuario.collectAsState().value?.nombre.orEmpty()
 
     ModalBottomSheet(onDismissRequest = alCerrar, sheetState = estado, containerColor = Tarjeta) {
         Column(Modifier.padding(horizontal = 18.dp).navigationBarsPadding().padding(bottom = 12.dp)) {
@@ -410,6 +416,29 @@ private fun HojaCobro(
             Text("Medio de pago", color = TextoSuave, fontSize = 12.sp, modifier = Modifier.padding(bottom = 4.dp))
             Opciones(Categorias.metodosPago, metodo) { metodo = it }
             FilterChip(
+                selected = consumo,
+                onClick = { metodo = Categorias.CONSUMO },
+                label = { Text(Categorias.CONSUMO, fontWeight = FontWeight.SemiBold) },
+                shape = RoundedCornerShape(50),
+                border = null,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = Tarjeta2,
+                    labelColor = TextoSuave,
+                    selectedContainerColor = Celeste,
+                    selectedLabelColor = SobreCeleste,
+                ),
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            if (consumo) {
+                Surface(color = Celeste.copy(alpha = 0.10f), shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    Text(
+                        "No suma a las ventas ni a la caja. Se descuenta del stock y se anota lo que costó: ${Formato.dinero(costo)}",
+                        Modifier.padding(10.dp),
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+            FilterChip(
                 selected = dia != null,
                 onClick = { eligiendoDia = true },
                 leadingIcon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
@@ -420,16 +449,18 @@ private fun HojaCobro(
                 onClick = {
                     vm.cobrar(metodo, dia)?.let { cobrado ->
                         val cuando = if (dia == null) "" else " el ${Formato.dia(dia)}"
-                        val texto = "Venta registrada$cuando: ${Formato.dinero(cobrado)}"
+                        val texto = if (consumo) "Consumo anotado$cuando (costo ${Formato.dinero(cobrado)})"
+                        else "Venta registrada$cuando: ${Formato.dinero(cobrado)}"
                         alCobrar(texto)
                     }
                 },
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(),
+                colors = if (consumo) ButtonDefaults.buttonColors(containerColor = Celeste, contentColor = SobreCeleste)
+                else ButtonDefaults.buttonColors(),
                 contentPadding = PaddingValues(vertical = 14.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) {
-                Text("Cobrar ${Formato.dinero(total)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text(if (consumo) "Anotar consumo de $quien" else "Cobrar ${Formato.dinero(total)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
         }
     }

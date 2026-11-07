@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import com.cosmica.cafeteria.ui.Excel
 import com.cosmica.cafeteria.ui.theme.Ambar
+import com.cosmica.cafeteria.ui.theme.Celeste
 import com.cosmica.cafeteria.ui.theme.TextoSuave
 import java.time.LocalDate
 import androidx.compose.material3.CardDefaults
@@ -77,6 +78,12 @@ fun BalanceScreen(vm: CafeViewModel, modifier: Modifier) {
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Linea("Ganancia bruta", b.gananciaBruta, destacada = true)
             Linea("Gastos", -b.gastos)
+            if (b.consumoEquipo > 0) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text("Consumo del equipo (a costo)", Modifier.weight(1f), color = Celeste)
+                    Text(Formato.dinero(-b.consumoEquipo), color = Celeste)
+                }
+            }
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             val neta = b.gananciaNeta
             Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
@@ -92,6 +99,27 @@ fun BalanceScreen(vm: CafeViewModel, modifier: Modifier) {
             Text("Ticket promedio: ${Formato.dinero(b.ticketPromedio)}", style = MaterialTheme.typography.bodySmall)
             if (b.descuentos > 0) {
                 Text("Descuentos dados: ${Formato.dinero(b.descuentos)}", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        if (b.consumosPorPersona.isNotEmpty()) {
+            Seccion("Consumo del equipo") {
+                b.consumosPorPersona.entries.sortedByDescending { it.value.second }.forEach { (n, d) ->
+                    Barra("$n · ${d.first} consumos", d.second, b.consumoEquipo, Celeste)
+                }
+                Text(
+                    "Si lo hubieran pagado, serían ${Formato.dinero(b.consumoAPrecio)} a precio de venta.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextoSuave,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                Text("Lo que más consumen", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+                b.consumoProductos.take(5).forEach { (n, c) ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                        Text(n, Modifier.weight(1f))
+                        Text("$c")
+                    }
+                }
             }
         }
 
