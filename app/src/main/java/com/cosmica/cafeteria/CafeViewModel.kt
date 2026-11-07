@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.cosmica.cafeteria.data.Categorias
+import com.cosmica.cafeteria.data.Cierre
+import com.cosmica.cafeteria.data.Insumo
+import com.cosmica.cafeteria.data.MovimientoStock
 import com.cosmica.cafeteria.data.Gasto
 import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.Repositorio
@@ -22,10 +25,18 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
+
+data class EstadoInsumo(
+    val insumo: Insumo,
+    val consumoPorDia: Double?,
+    val diasQueAlcanza: Double?,
+    val hayQueComprar: Boolean,
+)
 
 data class Balance(
     val ingresos: Double = 0.0,
@@ -36,6 +47,11 @@ data class Balance(
     val porVendedor: Map<String, Double> = emptyMap(),
     val gastosPorCategoria: Map<String, Double> = emptyMap(),
     val productos: List<ResumenProducto> = emptyList(),
+    /** Día del mes -> total vendido. */
+    val porDia: Map<Int, Double> = emptyMap(),
+    /** Hora del día -> cantidad de ventas. */
+    val porHora: Map<Int, Int> = emptyMap(),
+    val descuentos: Double = 0.0,
 ) {
     val gananciaBruta: Double get() = ingresos - costoMercaderia
     val gananciaNeta: Double get() = gananciaBruta - gastos
@@ -79,29 +95,30 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     val gastos: StateFlow<List<Gasto>> =
         estado(mes.flatMapLatest { m -> conSesion { repo.gastosDelMes(m) } }, emptyList())
 
-    val balance: StateFlow<Balance> = estado(
-        combine(ventas, gastos) { v, g ->
-            Balance(
-                ingresos = v.sumOf { it.total },
-                costoMercaderia = v.sumOf { it.costoTotal },
-                gastos = g.sumOf { it.monto },
-                cantidadVentas = v.size,
-                porMetodoPago = v.groupBy { it.metodoPago }.mapValues { (_, l) -> l.sumOf { it.total } },
-                porVendedor = v.groupBy { it.vendedor.ifBlank { "Sin nombre" } }
-                    .mapValues { (_, l) -> l.sumOf { it.total } },
-                gastosPorCategoria = g.groupBy { it.categoria }.mapValues { (_, l) -> l.sumOf { it.monto } },
-                productos = v.flatMap { it.items }.groupBy { it.nombreProducto }.map { (nombre, items) ->
-                    ResumenProducto(
-                        nombre = nombre,
-                        cantidad = items.sumOf { it.cantidad },
-                        ingresos = items.sumOf { it.cantidad * it.precioUnitario },
-                        ganancia = items.sumOf { it.cantidad * (it.precioUnitario - it.costoUnitario) },
-                    )
-                }.sortedByDescending { it.cantidad },
-            )
+    val balance: StateFlow<Balance> = estado(combine(ventas, gastos) { v, g -> armarBalance(v, g) }, Balance())
+
+    /**
+     * Balance del mes anterior para comparar. Si se mira el mes en curso, se toma el mismo período
+     * (del 1 al día de hoy) para que la comparación sea justa.
+     */
+    val balanceAnterior: StateFlow<Balance> = estado(
+        mes.flatMapLatest { m ->
+            val anterior = m.minusMonths(1)
+            val hasta = if (m == YearMonth.now()) LocalDate.now().dayOfMonth else 31
+            fun Long.dia() = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).dayOfMonth
+            combine(
+                conSesion { repo.ventasDelMes(anterior) },
+                conSesion { repo.gastosDelMes(anterior) },
+            ) { v, g -> armarBalance(v.filter { it.fecha.dia() <= hasta }, g.filter { it.fecha.dia() <= hasta }) }
         },
         Balance(),
     )
+
+    /** true si se compara solo una parte del mes anterior (porque el mes actual no terminó). */
+    val comparaPeriodoParcial: StateFlow<Boolean> = estado(mes.map { it == YearMonth.now() }, true)
+
+    val cierres: StateFlow<List<Cierre>> =
+        estado(mes.flatMapLatest { m -> conSesion { repo.cierresDelMes(m) } }, emptyList())
 
     /** Ventas de los últimos 28 días, sin importar el mes que se esté mirando. */
     private val recientes: StateFlow<List<Venta>> = estado(
@@ -120,6 +137,55 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
 
     /** La venta más reciente, para poder repetirla con un toque. */
     val ultimaVenta: StateFlow<Venta?> = estado(recientes.map { it.firstOrNull() }, null)
+
+    /** Ventas de hoy, para el cierre de caja (no depende del mes que se esté mirando). */
+    val ventasHoy: StateFlow<List<Venta>> = estado(
+        recientes.map { l ->
+            val inicio = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            l.filter { it.fecha >= inicio }
+        },
+        emptyList(),
+    )
+
+    /** Cierre de hoy, si ya se hizo. */
+    val cierreHoy: StateFlow<Cierre?> = estado(
+        conSesion { repo.cierresDelMes(YearMonth.now()) }.map { l -> l.firstOrNull { it.dia == LocalDate.now().toString() } },
+        null,
+    )
+
+    // ---- Stock ----
+
+    val insumos: StateFlow<List<Insumo>> = estado(
+        conSesion { repo.insumos() }.map { l -> l.sortedBy { it.nombre.lowercase() } },
+        emptyList(),
+    )
+
+    private val movimientos: StateFlow<List<MovimientoStock>> = estado(
+        conSesion { repo.movimientosDesde(System.currentTimeMillis() - DIAS_CONSUMO * DIA_MS) },
+        emptyList(),
+    )
+
+    /** Cada insumo con cuánto se gasta por día y para cuántos días alcanza. */
+    val stock: StateFlow<List<EstadoInsumo>> = estado(
+        combine(insumos, movimientos) { ins, movs -> ins.map { estadoDe(it, movs.filter { m -> m.insumoId == it.id }) } },
+        emptyList(),
+    )
+
+    fun guardarInsumo(i: Insumo) = repo.guardarInsumo(i)
+    fun borrarInsumo(i: Insumo) = repo.borrarInsumo(i.id)
+    fun comprarInsumo(i: Insumo, cantidad: Double) = repo.moverStock(i.id, cantidad, "compra")
+    fun contarInsumo(i: Insumo, contado: Double) = repo.contarStock(i.id, i.cantidad, contado)
+
+    /** Resta del stock lo vendido (o lo devuelve, con [signo] = 1) en los insumos ligados a productos. */
+    private fun descontarStock(cantidades: Map<String, Int>, signo: Int = -1) {
+        insumos.value.filter { it.productoId.isNotEmpty() }.forEach { i ->
+            val c = cantidades[i.productoId] ?: 0
+            if (c != 0) repo.moverStock(i.id, signo * c.toDouble(), if (signo < 0) "venta" else "ajuste")
+        }
+    }
+
+    private fun Venta.cantidades(): Map<String, Int> =
+        items.groupBy { it.productoId }.mapValues { (_, l) -> l.sumOf { it.cantidad } }
 
     /** Carrito de la venta en curso: id de producto -> cantidad. */
     val carrito = MutableStateFlow<Map<String, Int>>(emptyMap())
@@ -163,11 +229,41 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         val fecha = if (dia == null || dia == LocalDate.now()) System.currentTimeMillis()
         else dia.atTime(LocalTime.now()).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         repo.registrarVenta(lineas, metodoPago, nombreUsuario, fecha)
+        descontarStock(lineas.mapKeys { it.key.id })
         vaciarCarrito()
         return lineas.entries.sumOf { (p, c) -> p.precio * c }
     }
 
-    fun borrarVenta(v: Venta) = repo.borrarVenta(v)
+    fun borrarVenta(v: Venta) {
+        repo.borrarVenta(v)
+        descontarStock(v.cantidades(), signo = 1)
+    }
+
+    /** Guarda los cambios de una venta y ajusta el stock por la diferencia de productos. */
+    fun editarVenta(original: Venta, editada: Venta) {
+        repo.guardarVenta(editada)
+        val antes = original.cantidades()
+        val despues = editada.cantidades()
+        val diferencia = (antes.keys + despues.keys).associateWith { (despues[it] ?: 0) - (antes[it] ?: 0) }
+        descontarStock(diferencia)
+    }
+
+    fun cerrarCaja(fondoInicial: Double, contado: Double, nota: String) {
+        val hoy = ventasHoy.value
+        val efectivo = hoy.filter { it.metodoPago == Categorias.metodosPago.first() }.sumOf { it.total }
+        repo.guardarCierre(
+            Cierre(
+                dia = LocalDate.now().toString(),
+                fondoInicial = fondoInicial,
+                ventasEfectivo = efectivo,
+                ventasOtros = hoy.sumOf { it.total } - efectivo,
+                contado = contado,
+                cerradoPor = nombreUsuario,
+                nota = nota.trim(),
+                fecha = System.currentTimeMillis(),
+            )
+        )
+    }
 
     fun guardarProducto(p: Producto) = repo.guardarProducto(p)
     fun renombrarCategoria(vieja: String, nueva: String) {
@@ -181,11 +277,61 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         carrito.update { it - p.id }
     }
 
-    fun guardarGasto(g: Gasto) = repo.guardarGasto(if (g.id.isEmpty()) g.copy(cargadoPor = nombreUsuario) else g)
+    fun guardarGasto(g: Gasto, compra: Pair<Insumo, Double>? = null) {
+        repo.guardarGasto(if (g.id.isEmpty()) g.copy(cargadoPor = nombreUsuario) else g)
+        compra?.let { (i, c) -> comprarInsumo(i, c) }
+    }
     fun borrarGasto(g: Gasto) = repo.borrarGasto(g)
 
     companion object {
         private const val CANTIDAD_SUGERIDOS = 6
+        private const val DIA_MS = 24L * 60 * 60 * 1000
+        private const val DIAS_CONSUMO = 30L
+
+        fun armarBalance(v: List<Venta>, g: List<Gasto>): Balance {
+            val zona = ZoneId.systemDefault()
+            fun Long.hora() = Instant.ofEpochMilli(this).atZone(zona)
+            return Balance(
+                ingresos = v.sumOf { it.total },
+                costoMercaderia = v.sumOf { it.costoTotal },
+                gastos = g.sumOf { it.monto },
+                cantidadVentas = v.size,
+                porMetodoPago = v.groupBy { it.metodoPago }.mapValues { (_, l) -> l.sumOf { it.total } },
+                porVendedor = v.groupBy { it.vendedor.ifBlank { "Sin nombre" } }
+                    .mapValues { (_, l) -> l.sumOf { it.total } },
+                gastosPorCategoria = g.groupBy { it.categoria }.mapValues { (_, l) -> l.sumOf { it.monto } },
+                productos = v.flatMap { it.items }.groupBy { it.nombreProducto }.map { (nombre, items) ->
+                    ResumenProducto(
+                        nombre = nombre,
+                        cantidad = items.sumOf { it.cantidad },
+                        ingresos = items.sumOf { it.cantidad * it.precioUnitario },
+                        ganancia = items.sumOf { it.cantidad * (it.precioUnitario - it.costoUnitario) },
+                    )
+                }.sortedByDescending { it.cantidad },
+                porDia = v.groupBy { it.fecha.hora().dayOfMonth }.mapValues { (_, l) -> l.sumOf { it.total } },
+                porHora = v.groupBy { it.fecha.hora().hour }.mapValues { (_, l) -> l.size },
+                descuentos = v.sumOf { it.descuento },
+            )
+        }
+
+        /**
+         * Consumo por día según los últimos 30 días: lo que bajó con ventas y conteos.
+         * Hace falta al menos un día de datos para estimar.
+         */
+        fun estadoDe(i: Insumo, movs: List<MovimientoStock>, ahora: Long = System.currentTimeMillis()): EstadoInsumo {
+            val usos = movs.filter { it.tipo == "venta" || it.tipo == "conteo" || it.tipo == "ajuste" }
+            val consumo = -usos.sumOf { it.cambio }
+            val desde = movs.minOfOrNull { it.fecha }
+            val dias = desde?.let { (ahora - it).toDouble() / DIA_MS } ?: 0.0
+            val porDia = if (dias >= 1.0 && consumo > 0) consumo / dias else null
+            val alcanza = porDia?.let { (i.cantidad / it).coerceAtLeast(0.0) }
+            return EstadoInsumo(
+                insumo = i,
+                consumoPorDia = porDia,
+                diasQueAlcanza = alcanza,
+                hayQueComprar = i.cantidad <= i.minimo || (alcanza != null && alcanza < 3),
+            )
+        }
 
         fun masVendidosAhora(menu: List<Producto>, ventas: List<Venta>, hora: Int): List<Producto> {
             val porId = menu.associateBy { it.id }

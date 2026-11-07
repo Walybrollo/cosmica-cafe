@@ -1,6 +1,7 @@
 package com.cosmica.cafeteria.data
 
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.MetadataChanges
@@ -31,6 +32,9 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     private val productos = db.collection("productos")
     private val ventas = db.collection("ventas")
     private val gastos = db.collection("gastos")
+    private val cierres = db.collection("cierres")
+    private val insumos = db.collection("insumos")
+    private val movimientos = db.collection("movimientos")
 
     private val _problema = MutableStateFlow<String?>(null)
     /** Motivo por el que no se pueden leer los datos de internet, o null si anda bien. */
@@ -95,6 +99,73 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
         )
     }
 
+    /** Cierres de caja de un mes, por día ("2026-11-01" a "2026-11-31"). */
+    fun cierresDelMes(mes: YearMonth): Flow<List<Cierre>> = escuchar(
+        "cierres",
+        cierres.whereGreaterThanOrEqualTo("dia", mes.atDay(1).toString())
+            .whereLessThanOrEqualTo("dia", mes.atEndOfMonth().toString())
+            .orderBy("dia", Query.Direction.DESCENDING),
+        ::aCierre,
+    )
+
+    fun guardarCierre(c: Cierre) {
+        cierres.document(c.dia).set(
+            mapOf(
+                "dia" to c.dia,
+                "fondoInicial" to c.fondoInicial,
+                "ventasEfectivo" to c.ventasEfectivo,
+                "ventasOtros" to c.ventasOtros,
+                "contado" to c.contado,
+                "cerradoPor" to c.cerradoPor,
+                "nota" to c.nota,
+                "fecha" to c.fecha,
+            )
+        )
+    }
+
+    fun insumos(): Flow<List<Insumo>> = escuchar("stock", insumos, ::aInsumo)
+
+    fun movimientosDesde(desde: Long): Flow<List<MovimientoStock>> = escuchar(
+        "stock",
+        movimientos.whereGreaterThanOrEqualTo("fecha", desde),
+        ::aMovimiento,
+    )
+
+    fun guardarInsumo(i: Insumo) {
+        val datos = mapOf(
+            "nombre" to i.nombre,
+            "unidad" to i.unidad,
+            "minimo" to i.minimo,
+            "productoId" to i.productoId,
+        )
+        // Al editar no se toca la cantidad, que la cambian las ventas, compras y conteos.
+        if (i.id.isEmpty()) insumos.document().set(datos + ("cantidad" to i.cantidad))
+        else insumos.document(i.id).update(datos)
+    }
+
+    fun borrarInsumo(id: String) {
+        insumos.document(id).delete()
+    }
+
+    /** Suma (o resta) [cambio] al stock del insumo y anota el movimiento. */
+    fun moverStock(insumoId: String, cambio: Double, tipo: String) {
+        if (cambio == 0.0) return
+        insumos.document(insumoId).update("cantidad", FieldValue.increment(cambio))
+        anotarMovimiento(insumoId, cambio, tipo)
+    }
+
+    /** Deja el stock en lo que se contó y anota la diferencia como consumo. */
+    fun contarStock(insumoId: String, anterior: Double, contado: Double) {
+        insumos.document(insumoId).update("cantidad", contado)
+        anotarMovimiento(insumoId, contado - anterior, "conteo")
+    }
+
+    private fun anotarMovimiento(insumoId: String, cambio: Double, tipo: String) {
+        movimientos.document().set(
+            mapOf("insumoId" to insumoId, "fecha" to System.currentTimeMillis(), "tipo" to tipo, "cambio" to cambio)
+        )
+    }
+
     fun guardarProducto(p: Producto) {
         val doc = if (p.id.isEmpty()) productos.document() else productos.document(p.id)
         doc.set(
@@ -118,22 +189,34 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     }
 
     fun registrarVenta(carrito: Map<Producto, Int>, metodoPago: String, vendedor: String, fecha: Long) {
-        val lineas = carrito.filterValues { it > 0 }
-        if (lineas.isEmpty()) return
-        ventas.document().set(
+        val items = carrito.filterValues { it > 0 }.map { (p, c) ->
+            VentaItem(p.id, p.nombre, c, p.precio, p.costo)
+        }
+        if (items.isEmpty()) return
+        guardarVenta(Venta(fecha = fecha, total = 0.0, costoTotal = 0.0, metodoPago = metodoPago, vendedor = vendedor, items = items))
+    }
+
+    /** Guarda una venta nueva o editada; el total y el costo se recalculan con los productos y el descuento. */
+    fun guardarVenta(v: Venta) {
+        val items = v.items.filter { it.cantidad > 0 }
+        val subtotal = items.sumOf { it.cantidad * it.precioUnitario }
+        val descuento = v.descuento.coerceIn(0.0, subtotal)
+        val doc = if (v.id.isEmpty()) ventas.document() else ventas.document(v.id)
+        doc.set(
             mapOf(
-                "fecha" to fecha,
-                "total" to lineas.entries.sumOf { (p, c) -> p.precio * c },
-                "costoTotal" to lineas.entries.sumOf { (p, c) -> p.costo * c },
-                "metodoPago" to metodoPago,
-                "vendedor" to vendedor,
-                "items" to lineas.map { (p, c) ->
+                "fecha" to v.fecha,
+                "total" to subtotal - descuento,
+                "descuento" to descuento,
+                "costoTotal" to items.sumOf { it.cantidad * it.costoUnitario },
+                "metodoPago" to v.metodoPago,
+                "vendedor" to v.vendedor,
+                "items" to items.map {
                     mapOf(
-                        "productoId" to p.id,
-                        "nombreProducto" to p.nombre,
-                        "cantidad" to c,
-                        "precioUnitario" to p.precio,
-                        "costoUnitario" to p.costo,
+                        "productoId" to it.productoId,
+                        "nombreProducto" to it.nombreProducto,
+                        "cantidad" to it.cantidad,
+                        "precioUnitario" to it.precioUnitario,
+                        "costoUnitario" to it.costoUnitario,
                     )
                 },
             )
@@ -191,6 +274,41 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
             metodoPago = d.getString("metodoPago") ?: "",
             vendedor = d.getString("vendedor") ?: "",
             items = items,
+            descuento = d.getDouble("descuento") ?: 0.0,
+        )
+    }
+
+    private fun aCierre(d: DocumentSnapshot): Cierre? = d.getString("dia")?.let { dia ->
+        Cierre(
+            dia = dia,
+            fondoInicial = d.getDouble("fondoInicial") ?: 0.0,
+            ventasEfectivo = d.getDouble("ventasEfectivo") ?: 0.0,
+            ventasOtros = d.getDouble("ventasOtros") ?: 0.0,
+            contado = d.getDouble("contado") ?: 0.0,
+            cerradoPor = d.getString("cerradoPor") ?: "",
+            nota = d.getString("nota") ?: "",
+            fecha = d.getLong("fecha") ?: 0,
+        )
+    }
+
+    private fun aInsumo(d: DocumentSnapshot): Insumo? = d.getString("nombre")?.let { nombre ->
+        Insumo(
+            id = d.id,
+            nombre = nombre,
+            unidad = d.getString("unidad") ?: "unidades",
+            cantidad = d.getDouble("cantidad") ?: 0.0,
+            minimo = d.getDouble("minimo") ?: 0.0,
+            productoId = d.getString("productoId") ?: "",
+        )
+    }
+
+    private fun aMovimiento(d: DocumentSnapshot): MovimientoStock? {
+        val insumoId = d.getString("insumoId") ?: return null
+        return MovimientoStock(
+            insumoId = insumoId,
+            fecha = d.getLong("fecha") ?: return null,
+            tipo = d.getString("tipo") ?: "",
+            cambio = d.getDouble("cambio") ?: 0.0,
         )
     }
 

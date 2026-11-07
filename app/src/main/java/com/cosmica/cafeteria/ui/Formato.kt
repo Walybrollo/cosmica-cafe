@@ -22,6 +22,13 @@ object Formato {
 
     fun dinero(valor: Double): String = moneda.format(valor)
 
+    /** 3 -> "3", 2.5 -> "2,5" */
+    fun cantidad(valor: Double): String {
+        val redondo = Math.round(valor * 100) / 100.0
+        return if (redondo == Math.floor(redondo)) redondo.toLong().toString()
+        else redondo.toString().replace('.', ',')
+    }
+
     fun porcentaje(valor: Double): String = "${(valor * 100).toInt()}%"
 
     /** Acepta "1500", "1500.5", "1500,5" y "1.500,50". */

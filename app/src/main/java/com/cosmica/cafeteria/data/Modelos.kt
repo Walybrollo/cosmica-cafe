@@ -30,6 +30,46 @@ data class Venta(
     val metodoPago: String,
     val vendedor: String,
     val items: List<VentaItem>,
+    /** Plata descontada del subtotal; el total ya la tiene restada. */
+    val descuento: Double = 0.0,
+)
+
+val Venta.subtotal: Double get() = items.sumOf { it.cantidad * it.precioUnitario }
+
+/** Cierre de caja de un día. El id es la fecha (2026-11-07), así hay uno solo por día. */
+data class Cierre(
+    val dia: String,
+    val fondoInicial: Double,
+    val ventasEfectivo: Double,
+    val ventasOtros: Double,
+    val contado: Double,
+    val cerradoPor: String,
+    val nota: String = "",
+    val fecha: Long = 0,
+) {
+    val esperado: Double get() = fondoInicial + ventasEfectivo
+    val diferencia: Double get() = contado - esperado
+}
+
+/**
+ * Un insumo con stock. Si tiene [productoId], se descuenta solo cada vez que se vende ese producto
+ * (alfajores, galletas). Si no, se actualiza con compras y conteos (café, leche, vasos).
+ */
+data class Insumo(
+    val id: String = "",
+    val nombre: String,
+    val unidad: String,
+    val cantidad: Double,
+    val minimo: Double,
+    val productoId: String = "",
+)
+
+/** Cambio de stock: compra (+), conteo (lo que había menos lo contado), venta (-) o ajuste. */
+data class MovimientoStock(
+    val insumoId: String,
+    val fecha: Long,
+    val tipo: String,
+    val cambio: Double,
 )
 
 data class Gasto(
@@ -52,4 +92,5 @@ object Categorias {
     val productos = listOf("Cafés", "Bebidas", "Comidas", "Dulces", "Otros")
     val gastos = listOf("Insumos", "Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
     val metodosPago = listOf("Efectivo", "Tarjeta", "Transferencia")
+    val unidades = listOf("unidades", "kg", "litros", "paquetes")
 }

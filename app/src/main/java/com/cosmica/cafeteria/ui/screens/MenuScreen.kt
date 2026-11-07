@@ -23,6 +23,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +48,24 @@ import com.cosmica.cafeteria.ui.theme.Perdida
 
 @Composable
 fun MenuScreen(vm: CafeViewModel, modifier: Modifier) {
+    var pestana by rememberSaveable { mutableIntStateOf(0) }
+    val stock by vm.stock.collectAsState()
+    val paraComprar = stock.count { it.hayQueComprar }
+    Column(modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = pestana, containerColor = MaterialTheme.colorScheme.background) {
+            Tab(selected = pestana == 0, onClick = { pestana = 0 }, text = { Text("Productos") })
+            Tab(
+                selected = pestana == 1,
+                onClick = { pestana = 1 },
+                text = { Text(if (paraComprar > 0) "Stock · $paraComprar para comprar" else "Stock") },
+            )
+        }
+        if (pestana == 0) ProductosScreen(vm, Modifier.weight(1f)) else StockScreen(vm, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun ProductosScreen(vm: CafeViewModel, modifier: Modifier) {
     val menu by vm.menu.collectAsState()
     var editando by remember { mutableStateOf<Producto?>(null) }
     var aQuitar by remember { mutableStateOf<Producto?>(null) }

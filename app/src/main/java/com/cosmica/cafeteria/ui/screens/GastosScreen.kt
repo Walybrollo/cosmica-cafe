@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.cosmica.cafeteria.CafeViewModel
 import com.cosmica.cafeteria.data.Categorias
 import com.cosmica.cafeteria.data.Gasto
+import com.cosmica.cafeteria.data.Insumo
 import com.cosmica.cafeteria.ui.CampoNumero
 import com.cosmica.cafeteria.ui.Formato
 import com.cosmica.cafeteria.ui.Opciones
@@ -42,6 +43,7 @@ import com.cosmica.cafeteria.ui.SelectorMes
 @Composable
 fun GastosScreen(vm: CafeViewModel, modifier: Modifier) {
     val gastos by vm.gastos.collectAsState()
+    val insumos by vm.insumos.collectAsState()
     // null = cerrado; un Gasto sin id = gasto nuevo.
     var editando by remember { mutableStateOf<Gasto?>(null) }
 
@@ -96,8 +98,9 @@ fun GastosScreen(vm: CafeViewModel, modifier: Modifier) {
     editando?.let { g ->
         DialogoGasto(
             gasto = g,
+            insumos = insumos,
             alCerrar = { editando = null },
-            alGuardar = { vm.guardarGasto(it); editando = null },
+            alGuardar = { gasto, compra -> vm.guardarGasto(gasto, compra); editando = null },
             alBorrar = { vm.borrarGasto(g); editando = null },
         )
     }
@@ -111,12 +114,23 @@ private fun fechaParaNuevoGasto(vm: CafeViewModel): Long {
 }
 
 @Composable
-private fun DialogoGasto(gasto: Gasto, alCerrar: () -> Unit, alGuardar: (Gasto) -> Unit, alBorrar: () -> Unit) {
+private fun DialogoGasto(
+    gasto: Gasto,
+    insumos: List<Insumo>,
+    alCerrar: () -> Unit,
+    alGuardar: (Gasto, Pair<Insumo, Double>?) -> Unit,
+    alBorrar: () -> Unit,
+) {
+    var insumoNombre by remember { mutableStateOf(NINGUNO) }
+    var cantidadComprada by remember { mutableStateOf("") }
     var descripcion by remember { mutableStateOf(gasto.descripcion) }
     var monto by remember { mutableStateOf(if (gasto.id.isEmpty()) "" else Formato.paraEditar(gasto.monto)) }
     var categoria by remember { mutableStateOf(gasto.categoria) }
     val montoNum = Formato.leerNumero(monto)
-    val valido = descripcion.isNotBlank() && montoNum != null && montoNum > 0
+    val insumo = if (gasto.id.isEmpty() && categoria == "Insumos") insumos.firstOrNull { it.nombre == insumoNombre } else null
+    val cantidadNum = Formato.leerNumero(cantidadComprada)
+    val compra = if (insumo != null && cantidadNum != null && cantidadNum > 0) insumo to cantidadNum else null
+    val valido = descripcion.isNotBlank() && montoNum != null && montoNum > 0 && (insumo == null || compra != null)
 
     AlertDialog(
         onDismissRequest = alCerrar,
@@ -133,13 +147,18 @@ private fun DialogoGasto(gasto: Gasto, alCerrar: () -> Unit, alGuardar: (Gasto) 
                 CampoNumero(monto, "Monto") { monto = it }
                 Text("Categoría", style = MaterialTheme.typography.labelMedium)
                 Opciones(Categorias.gastos, categoria) { categoria = it }
+                if (gasto.id.isEmpty() && categoria == "Insumos" && insumos.isNotEmpty()) {
+                    Text("¿Sumar al stock?", style = MaterialTheme.typography.labelMedium)
+                    Opciones(listOf(NINGUNO) + insumos.map { it.nombre }, insumoNombre) { insumoNombre = it }
+                    if (insumo != null) CampoNumero(cantidadComprada, "Cantidad comprada (${insumo.unidad})") { cantidadComprada = it }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = valido,
                 onClick = {
-                    alGuardar(gasto.copy(descripcion = descripcion.trim(), monto = montoNum ?: 0.0, categoria = categoria))
+                    alGuardar(gasto.copy(descripcion = descripcion.trim(), monto = montoNum ?: 0.0, categoria = categoria), compra)
                 },
             ) { Text("Guardar") }
         },
@@ -151,3 +170,5 @@ private fun DialogoGasto(gasto: Gasto, alCerrar: () -> Unit, alGuardar: (Gasto) 
         },
     )
 }
+
+private const val NINGUNO = "No"

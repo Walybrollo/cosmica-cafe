@@ -6,8 +6,7 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email in ['walyb17@gmail.com', 'micasanz888@gmail.com'];
     }
-    match /productos/{id} { allow read, write: if esDelEquipo(); }
-    match /ventas/{id}    { allow read, write: if esDelEquipo(); }
-    match /gastos/{id}    { allow read, write: if esDelEquipo(); }
+    // Todas las listas de la app: productos, ventas, gastos, cierres, insumos y movimientos.
+    match /{lista}/{id} { allow read, write: if esDelEquipo(); }
   }
 }
