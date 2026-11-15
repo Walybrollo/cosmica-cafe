@@ -60,4 +60,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // Escáner de QR de Google para el pasaporte de sellos (no necesita permiso de cámara).
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
 }

@@ -32,6 +32,9 @@ data class Venta(
     val items: List<VentaItem>,
     /** Plata descontada del subtotal; el total ya la tiene restada. */
     val descuento: Double = 0.0,
+    /** Cliente del pasaporte de sellos al que se le sellaron cafés en esta venta (vacío si ninguno). */
+    val clienteId: String = "",
+    val clienteNombre: String = "",
 )
 
 val Venta.subtotal: Double get() = items.sumOf { it.cantidad * it.precioUnitario }
@@ -72,6 +75,23 @@ data class MovimientoStock(
     val tipo: String,
     val cambio: Double,
 )
+
+/** Cliente con pasaporte de sellos (se registra solo desde la página del pasaporte). */
+data class Cliente(
+    val id: String,
+    val nombre: String,
+    val codigo: String,
+    val sellos: Int,
+    val canjes: Int,
+)
+
+object Pasaporte {
+    /** Con 6 sellos, el 7mo café es gratis. Tiene que coincidir con docs/config.js. */
+    const val SELLOS_PARA_PREMIO = 6
+}
+
+/** Lo que se le sella a un cliente al cobrar: cafés sellados y si canjea su café gratis. */
+data class SelloVenta(val cliente: Cliente, val sellos: Int, val canje: Boolean, val descuento: Double)
 
 data class Gasto(
     val id: String = "",

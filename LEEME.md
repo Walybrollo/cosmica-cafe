@@ -14,6 +14,8 @@ Para entrar la primera vez en un teléfono sí hace falta internet.
 - **Balance**: por mes, ventas, costo de lo vendido, ganancia bruta, gastos y **ganancia neta**; además lo cobrado por
   medio de pago, lo vendido por cada persona, gastos por categoría y los productos más vendidos.
 
+- **Pasaporte de sellos** (para clientes): ver abajo.
+
 Cada venta guarda el precio y el costo del momento, así si después cambiás un precio el balance de meses anteriores no cambia.
 
 ## Configurar Firebase (una sola vez, gratis)
@@ -32,6 +34,34 @@ Cada venta guarda el precio y el costo del momento, así si después cambiás un
 
 Para sumar a alguien más: agregalo como usuario (paso 3) y sumá su correo en las reglas (paso 5).
 
+## Pasaporte de sellos para clientes
+
+Los clientes no instalan nada: escanean el QR del mostrador o del vaso y se abre su **pasaporte cósmico** en el
+navegador (página `docs/index.html`). Ponen su nombre y les aparece su propio QR y un código de 6 letras.
+Cada café es un planeta sellado: **con 6 sellos, el 7mo café es gratis**.
+
+Al cobrar en *Vender*, en la hoja del pedido tocá **Escanear** y apuntá al QR del cliente (o escribí su código).
+La app sugiere un sello por cada café del pedido (productos de una categoría que diga "Café"); se puede cambiar
+con − y +. Cuando el cliente tiene 6 sellos aparece **Canjear café gratis**: descuenta del total el café más caro
+del pedido y le resta 6 sellos. La venta queda anotada con el nombre del cliente.
+
+Puesta en marcha (una sola vez):
+
+1. Firebase → **Authentication** → *Método de acceso* → **Anónimo** → activarlo. Así cada cliente tiene su
+   pasaporte sin crear cuenta.
+2. Firebase → **Firestore** → *Reglas*: pegar de nuevo `firestore.rules` y **Publicar** (suma la parte de `clientes`).
+3. GitHub → *Settings* → **Pages** → *Branch*: `main`, carpeta `/docs` → *Save*. En un par de minutos el pasaporte
+   queda en <https://walybrollo.github.io/cosmica-cafe/>.
+4. Abrir <https://walybrollo.github.io/cosmica-cafe/qr.html> e **imprimir**: hoja 1, cartel para el mostrador;
+   hoja 2, 12 stickers para los vasos.
+
+Si el pasaporte dice que no se pudo conectar, en Firebase andá a *Configuración del proyecto* → *Tus apps* →
+*Agregar app* → **Web**, y copiá esos datos en `docs/config.js`.
+Para ver cómo se ve sin conexión: `index.html?demo=4` (el número es la cantidad de sellos).
+
+Importante para el cliente: el pasaporte queda guardado en el navegador de su teléfono. Si borra los datos del
+navegador o cambia de teléfono, empieza uno nuevo.
+
 ## Cómo obtener el APK
 
 El proyecto está preparado para que GitHub arme el APK solo cada vez que se sube un cambio
@@ -48,4 +78,5 @@ Para instalarlo, pasá el APK al teléfono y abrilo (Android pide permitir "inst
 
 Kotlin, Jetpack Compose (Material 3), Firebase Authentication y Cloud Firestore. minSdk 26 (Android 8.0), targetSdk 35.
 Código en `app/src/main/java/com/cosmica/cafeteria/`: `data/` (Firestore y sesión), `CafeViewModel.kt`
-(lógica y balance), `ui/screens/` (pantallas). Colecciones de Firestore: `productos`, `ventas`, `gastos`.
+(lógica y balance), `ui/screens/` (pantallas). Colecciones de Firestore: `productos`, `ventas`, `gastos`, `cierres`, `insumos`, `movimientos` y `clientes`
+(pasaporte de sellos). La página de clientes está en `docs/` (HTML + Firebase web, publicada con GitHub Pages).

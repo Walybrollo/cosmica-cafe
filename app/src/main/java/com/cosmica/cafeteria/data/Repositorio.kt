@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.tasks.await
 import java.time.YearMonth
 import java.time.ZoneId
 
@@ -35,6 +36,7 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     private val cierres = db.collection("cierres")
     private val insumos = db.collection("insumos")
     private val movimientos = db.collection("movimientos")
+    private val clientes = db.collection("clientes")
 
     private val _problema = MutableStateFlow<String?>(null)
     /** Motivo por el que no se pueden leer los datos de internet, o null si anda bien. */
@@ -188,12 +190,47 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
         productos.document(id).update("activo", false)
     }
 
-    fun registrarVenta(carrito: Map<Producto, Int>, metodoPago: String, vendedor: String, fecha: Long) {
+    fun registrarVenta(
+        carrito: Map<Producto, Int>,
+        metodoPago: String,
+        vendedor: String,
+        fecha: Long,
+        sello: SelloVenta? = null,
+    ) {
         val items = carrito.filterValues { it > 0 }.map { (p, c) ->
             VentaItem(p.id, p.nombre, c, p.precio, p.costo)
         }
         if (items.isEmpty()) return
-        guardarVenta(Venta(fecha = fecha, total = 0.0, costoTotal = 0.0, metodoPago = metodoPago, vendedor = vendedor, items = items))
+        guardarVenta(
+            Venta(
+                fecha = fecha, total = 0.0, costoTotal = 0.0, metodoPago = metodoPago, vendedor = vendedor, items = items,
+                descuento = sello?.descuento ?: 0.0,
+                clienteId = sello?.cliente?.id.orEmpty(),
+                clienteNombre = sello?.cliente?.nombre.orEmpty(),
+            )
+        )
+        sello?.let { sellar(it) }
+    }
+
+    /**
+     * Busca un cliente del pasaporte por lo que se escaneó del QR (su id) o por el código de 6 letras.
+     * Necesita internet. Devuelve null si no existe.
+     */
+    suspend fun buscarCliente(texto: String): Cliente? {
+        val t = texto.trim().substringAfterLast('/').substringAfterLast('=')
+        if (t.isEmpty()) return null
+        val doc = if (t.length > 12) clientes.document(t).get().await().takeIf { it.exists() }
+        else clientes.whereEqualTo("codigo", t.uppercase()).limit(1).get().await().documents.firstOrNull()
+        return doc?.let(::aCliente)
+    }
+
+    /** Suma los sellos de la venta y, si canjea, descuenta los del café gratis. */
+    private fun sellar(s: SelloVenta) {
+        val cambio = s.sellos - if (s.canje) Pasaporte.SELLOS_PARA_PREMIO else 0
+        val datos = mutableMapOf<String, Any>("ultimaVisita" to System.currentTimeMillis())
+        if (cambio != 0) datos["sellos"] = FieldValue.increment(cambio.toLong())
+        if (s.canje) datos["canjes"] = FieldValue.increment(1)
+        clientes.document(s.cliente.id).update(datos)
     }
 
     /** Guarda una venta nueva o editada; el total y el costo se recalculan con los productos y el descuento. */
@@ -212,6 +249,8 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
                 "costoTotal" to items.sumOf { it.cantidad * it.costoUnitario },
                 "metodoPago" to v.metodoPago,
                 "vendedor" to v.vendedor,
+                "clienteId" to v.clienteId,
+                "clienteNombre" to v.clienteNombre,
                 "items" to items.map {
                     mapOf(
                         "productoId" to it.productoId,
@@ -277,8 +316,18 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
             vendedor = d.getString("vendedor") ?: "",
             items = items,
             descuento = d.getDouble("descuento") ?: 0.0,
+            clienteId = d.getString("clienteId") ?: "",
+            clienteNombre = d.getString("clienteNombre") ?: "",
         )
     }
+
+    private fun aCliente(d: DocumentSnapshot): Cliente = Cliente(
+        id = d.id,
+        nombre = d.getString("nombre") ?: "",
+        codigo = d.getString("codigo") ?: "",
+        sellos = d.getLong("sellos")?.toInt() ?: 0,
+        canjes = d.getLong("canjes")?.toInt() ?: 0,
+    )
 
     private fun aCierre(d: DocumentSnapshot): Cierre? = d.getString("dia")?.let { dia ->
         Cierre(
