@@ -56,6 +56,7 @@
     background: var(--ambar); color: var(--sobre-ambar); border-radius: 14px; padding: 15px;
   }
   button:disabled { opacity: .5; }
+  button.secundario { background: transparent; color: var(--ambar); border: 1px solid #F2B35B99; }
   [hidden] { display: none !important; }
 
   /* Órbita de sellos */
@@ -105,6 +106,7 @@
       <input id="nombre" maxlength="30" autocomplete="given-name" placeholder="Tu nombre" required>
       <button id="crear" type="submit">Crear mi pasaporte</button>
     </form>
+    <button id="yaTengo" class="secundario" type="button">Ya tengo pasaporte: entrar con Google</button>
   </section>
 
   <section id="pasaporte" hidden>
@@ -120,7 +122,14 @@
       <div class="qr" id="qr"></div>
       <div class="codigo">o decí tu código<b id="codigo"></b></div>
     </div>
-    <p class="pie">Guardá esta página en la pantalla de inicio para tenerla a mano.<br>Tu pasaporte queda guardado en este navegador.</p>
+    <div class="tarjeta" style="text-align:center">
+      <div id="guardar-caja">
+        <button id="guardar" class="secundario" type="button" hidden>Guardar mis sellos con Google</button>
+        <p id="guardado" class="suave" hidden>✓ Sellos guardados en tu cuenta de Google<br><span id="guardadoMail" style="color:var(--texto)"></span></p>
+      </div>
+      <button id="instalar" type="button" hidden>Instalar la app en el teléfono</button>
+      <p class="pie" id="pieInstalar" style="margin-top:12px">Para tenerla como app: en el menú del navegador tocá “Instalar app” o “Agregar a pantalla de inicio”.</p>
+    </div>
   </section>
 
   <section id="error" class="tarjeta error" hidden>
@@ -227,6 +236,7 @@ function fallar(texto) {
 const demo = new URLSearchParams(location.search).get("demo");
 if (demo !== null) {
   pintar({ nombre: "Ana", sellos: Number(demo) || 0, codigo: "K7P2QX", qr: "demo-cliente-cosmica" });
+  $("guardar").hidden = false;
 } else {
   iniciar().catch((e) => fallar("Revisá tu conexión a internet. (" + (e.code || e.message) + ")"));
 }
@@ -241,38 +251,98 @@ async function iniciar() {
   const app = initializeApp(firebaseConfig);
   const a = auth.getAuth(app);
   const db = fs.getFirestore(app);
+  const google = new auth.GoogleAuthProvider();
+  google.setCustomParameters({ prompt: "select_account" });
+  let ref = null;
+  let cortar = null;
 
-  // Cada teléfono tiene un usuario anónimo propio: no hace falta correo ni contraseña.
-  const usuario = await new Promise((ok, mal) => {
-    const fin = auth.onAuthStateChanged(a, (u) => {
-      if (u) { fin(); ok(u); }
-      else auth.signInAnonymously(a).catch((e) => { fin(); mal(e); });
-    });
-  });
-
-  const ref = fs.doc(db, "clientes", usuario.uid);
-  fs.onSnapshot(ref, (snap) => {
-    if (!snap.exists()) {
-      mostrar("bienvenida");
-      setTimeout(() => $("nombre").focus(), 50);
+  // Cada teléfono arranca con un usuario anónimo (sin correo ni contraseña).
+  // Si el cliente lo vincula con Google, el mismo pasaporte se recupera en cualquier teléfono.
+  auth.onAuthStateChanged(a, (u) => {
+    if (cortar) { cortar(); cortar = null; }
+    if (!u) {
+      auth.signInAnonymously(a).catch((e) => fallar("Revisá tu conexión a internet. (" + e.code + ")"));
       return;
     }
-    pintar({ ...snap.data(), qr: usuario.uid });
-  }, (e) => fallar("No se pudo leer tu pasaporte. (" + e.code + ")"));
+    const conGoogle = u.providerData.some((p) => p.providerId === "google.com");
+    $("guardar").hidden = conGoogle;
+    $("guardado").hidden = !conGoogle;
+    $("guardadoMail").textContent = u.email || "";
+    $("yaTengo").hidden = conGoogle;
+    ref = fs.doc(db, "clientes", u.uid);
+    cortar = fs.onSnapshot(ref, (snap) => {
+      if (!snap.exists()) {
+        $("nombre").value = $("nombre").value || (u.displayName || "").split(" ")[0];
+        mostrar("bienvenida");
+        return;
+      }
+      pintar({ ...snap.data(), qr: u.uid });
+    }, (e) => fallar("No se pudo leer tu pasaporte. (" + e.code + ")"));
+  });
 
   $("formNombre").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const nombre = $("nombre").value.trim().slice(0, 30);
-    if (!nombre) return;
+    if (!nombre || !ref) return;
     $("crear").disabled = true;
     try {
       await fs.setDoc(ref, { nombre, codigo: nuevoCodigo(), sellos: 0, canjes: 0, creado: fs.serverTimestamp() });
     } catch (e) {
-      $("crear").disabled = false;
       fallar("No se pudo crear el pasaporte. (" + e.code + ")");
+    } finally {
+      $("crear").disabled = false;
+    }
+  });
+
+  // Guardar los sellos en la cuenta de Google (vincula el usuario anónimo, mantiene los sellos).
+  $("guardar").addEventListener("click", async () => {
+    try {
+      await auth.linkWithPopup(a.currentUser, google);
+      await a.currentUser.reload();
+      $("guardar").hidden = true; $("guardado").hidden = false;
+      $("guardadoMail").textContent = a.currentUser.email || "";
+    } catch (e) {
+      if (e.code === "auth/credential-already-in-use") {
+        // Esa cuenta ya tenía un pasaporte: se abre ese.
+        const cred = auth.GoogleAuthProvider.credentialFromError(e);
+        if (cred) await auth.signInWithCredential(a, cred);
+      } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        alert("No se pudo conectar con Google (" + e.code + ").");
+      }
+    }
+  });
+
+  // En un teléfono nuevo: entrar con la cuenta de Google donde quedó guardado el pasaporte.
+  $("yaTengo").addEventListener("click", async () => {
+    try {
+      await auth.signInWithPopup(a, google);
+    } catch (e) {
+      if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        alert("No se pudo entrar con Google (" + e.code + ").");
+      }
     }
   });
 }
+
+// Instalar como app: Android/Chrome ofrece el botón; en iPhone se explica cómo.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+let pedidoInstalar = null;
+const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  pedidoInstalar = e;
+  $("instalar").hidden = false;
+});
+$("instalar").addEventListener("click", async () => {
+  if (!pedidoInstalar) return;
+  pedidoInstalar.prompt();
+  await pedidoInstalar.userChoice;
+  pedidoInstalar = null;
+  $("instalar").hidden = true;
+});
+const esIphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (instalada) $("pieInstalar").hidden = true;
+else if (esIphone) $("pieInstalar").textContent = "Para tenerla como app: tocá Compartir y después \u201cAgregar a inicio\u201d.";
 </script>
 </body>
 </html>

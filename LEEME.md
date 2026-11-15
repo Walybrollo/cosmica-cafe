@@ -47,8 +47,9 @@ del pedido y le resta 6 sellos. La venta queda anotada con el nombre del cliente
 
 Puesta en marcha (una sola vez):
 
-1. Firebase → **Authentication** → *Método de acceso* → **Anónimo** → activarlo. Así cada cliente tiene su
-   pasaporte sin crear cuenta.
+1. Firebase → **Authentication** → *Método de acceso*: activar **Anónimo** (cada cliente arranca sin crear cuenta)
+   y **Google** (para guardar los sellos en su cuenta). En *Configuración* → *Dominios autorizados*, agregar
+   `walybrollo.github.io`.
 2. Firebase → **Firestore** → *Reglas*: pegar de nuevo `firestore.rules` y **Publicar** (suma la parte de `clientes`).
 3. GitHub → *Settings* → **Pages** → *Branch*: `main`, carpeta `/docs` → *Save*. En un par de minutos el pasaporte
    queda en <https://walybrollo.github.io/cosmica-cafe/>.
@@ -59,8 +60,10 @@ Si el pasaporte dice que no se pudo conectar, en Firebase andá a *Configuració
 *Agregar app* → **Web**, y copiá esos datos en `docs/config.js`.
 Para ver cómo se ve sin conexión: `index.html?demo=4` (el número es la cantidad de sellos).
 
-Importante para el cliente: el pasaporte queda guardado en el navegador de su teléfono. Si borra los datos del
-navegador o cambia de teléfono, empieza uno nuevo.
+**App para el cliente:** la misma página se instala como app (ícono propio, se abre sin barra del navegador). En
+Android aparece el botón *Instalar la app*; en iPhone, *Compartir → Agregar a inicio*.
+Con **Guardar mis sellos con Google** el pasaporte queda en su cuenta: si cambia de teléfono o borra el navegador,
+toca *Ya tengo pasaporte: entrar con Google* y recupera sus sellos. Sin eso, el pasaporte vive solo en ese navegador.
 
 ## Cómo obtener el APK
 
