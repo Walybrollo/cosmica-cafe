@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR para imprimir</title>
+<link rel="icon" href="icono-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="qrcode.js"></script>
+<style>
+  :root { --fondo: #070A16; --tarjeta: #121733; --borde: #232A52; --texto: #EEF0FA; --suave: #9AA3C7; --ambar: #F2B35B; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; background: #d9dbe5; color: var(--texto); font-family: Manrope, system-ui, sans-serif; }
+  .barra { background: var(--fondo); padding: 14px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .barra p { margin: 0; color: var(--suave); font-size: 14px; flex: 1 1 240px; }
+  .barra button { font: inherit; font-weight: 800; border: 0; border-radius: 12px; padding: 12px 20px; background: var(--ambar); color: #1A1204; cursor: pointer; }
+  .hoja { width: 210mm; min-height: 297mm; margin: 16px auto; background: #fff; padding: 12mm; display: flex; align-items: center; justify-content: center; }
+  .cartel {
+    width: 150mm; background: var(--fondo); border-radius: 10mm; padding: 14mm 12mm; text-align: center;
+    background-image: radial-gradient(1px 1px at 15% 20%, #fff9 50%, transparent 51%), radial-gradient(1.5px 1.5px at 80% 12%, #fff7 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 75%, #fff8 50%, transparent 51%), radial-gradient(1px 1px at 22% 88%, #fff6 50%, transparent 51%),
+      radial-gradient(ellipse at 50% 0%, #1B2246 0%, transparent 65%);
+  }
+  .cartel img { width: 34mm; }
+  .marca { font-family: Cinzel, serif; font-size: 11mm; margin: 2mm 0 0; }
+  .lema { font-size: 7mm; font-weight: 800; margin: 8mm 0 2mm; line-height: 1.2; }
+  .lema span { color: var(--ambar); }
+  .bajada { color: var(--suave); font-size: 4.6mm; margin: 0 0 8mm; }
+  .qr { background: #fff; border-radius: 6mm; padding: 6mm; width: 82mm; margin: 0 auto; }
+  .qr svg { width: 100%; height: auto; display: block; }
+  .paso { font-size: 4.4mm; color: var(--suave); margin-top: 7mm; line-height: 1.6; }
+  .paso b { color: var(--texto); }
+  .stickers { display: grid; grid-template-columns: repeat(3, 56mm); gap: 8mm 6mm; justify-content: center; align-content: center; }
+  .sticker {
+    width: 56mm; height: 56mm; border-radius: 50%; background: var(--fondo); border: 1.2mm solid var(--ambar);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  }
+  .sticker .qr { width: 27mm; padding: 2mm; border-radius: 2.5mm; }
+  .sticker .t1 { font-weight: 800; font-size: 3.6mm; margin-bottom: 1.6mm; }
+  .sticker .t2 { color: var(--ambar); font-weight: 800; font-size: 3.2mm; margin-top: 1.6mm; }
+  @page { size: A4; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .barra { display: none; }
+    .hoja { margin: 0; break-after: page; }
+  }
+</style>
+</head>
+<body>
+<div class="barra">
+  <p>Hoja 1: cartel para el mostrador. Hoja 2: 12 stickers redondos para los vasos (5,6 cm). Los dos llevan al pasaporte de sellos.</p>
+  <button onclick="print()">Imprimir</button>
+</div>
+
+<section class="hoja">
+  <div class="cartel">
+    <img src="logo.png" alt="">
+    <p class="marca">Cósmica Coffee</p>
+    <p class="lema">Juntá 6 planetas<br>y el <span>7mo café es gratis</span></p>
+    <p class="bajada">Pasaporte de sellos cósmico</p>
+    <div class="qr" data-qr></div>
+    <p class="paso"><b>1.</b> Escaneá con la cámara<br><b>2.</b> Poné tu nombre<br><b>3.</b> Mostrá tu QR al pagar</p>
+  </div>
+</section>
+
+<section class="hoja">
+  <div class="stickers" id="stickers"></div>
+</section>
+
+<script>
+  const destino = new URLSearchParams(location.search).get("url") || new URL("./", location.href).href;
+  const q = qrcode(0, "M");
+  q.addData(destino);
+  q.make();
+  const svg = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
+  const sticker = `<div class="sticker"><div class="t1">7mo café gratis</div><div class="qr">${svg}</div><div class="t2">Pasaporte cósmico</div></div>`;
+  document.getElementById("stickers").innerHTML = sticker.repeat(12);
+  document.querySelectorAll("[data-qr]").forEach((e) => (e.innerHTML = svg));
+</script>
+</body>
+</html>

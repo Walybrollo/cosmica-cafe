@@ -6,7 +6,23 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email in ['walyb17@gmail.com', 'micasanz888@gmail.com'];
     }
-    // Todas las listas de la app: productos, ventas, gastos, cierres, insumos y movimientos.
+    // Todas las listas de la app: productos, ventas, gastos, cierres, insumos, movimientos y clientes.
     match /{lista}/{id} { allow read, write: if esDelEquipo(); }
+
+    // Pasaporte de sellos: cada cliente entra anónimo desde la página y solo ve su propio pasaporte.
+    // Puede crearlo en 0 y cambiarse el nombre; los sellos los suma solo el equipo desde la app.
+    match /clientes/{uid} {
+      function esElCliente() { return request.auth != null && request.auth.uid == uid; }
+      function nombreValido() {
+        return request.resource.data.nombre is string && request.resource.data.nombre.size() <= 30;
+      }
+      allow read: if esElCliente();
+      allow create: if esElCliente() && nombreValido()
+        && request.resource.data.keys().hasOnly(['nombre', 'codigo', 'sellos', 'canjes', 'creado'])
+        && request.resource.data.codigo is string && request.resource.data.codigo.size() == 6
+        && request.resource.data.sellos == 0 && request.resource.data.canjes == 0;
+      allow update: if esElCliente() && nombreValido()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre']);
+    }
   }
 }

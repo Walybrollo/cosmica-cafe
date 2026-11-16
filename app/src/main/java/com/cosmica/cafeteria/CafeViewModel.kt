@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.cosmica.cafeteria.data.Categorias
 import com.cosmica.cafeteria.data.Cierre
+import com.cosmica.cafeteria.data.Cliente
+import com.cosmica.cafeteria.data.SelloVenta
 import com.cosmica.cafeteria.data.Insumo
 import com.cosmica.cafeteria.data.MovimientoStock
 import com.cosmica.cafeteria.data.Gasto
@@ -229,18 +231,25 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
      * Devuelve el total cobrado, o null si el carrito estaba vacío.
      * [dia] permite cargar una venta olvidada de otro día; se guarda con la hora actual.
      */
-    fun cobrar(metodoPago: String, dia: LocalDate? = null): Double? {
+    fun cobrar(metodoPago: String, dia: LocalDate? = null, sello: SelloVenta? = null): Double? {
         val porId = menu.value.associateBy { it.id }
         val lineas = carrito.value.mapNotNull { (id, c) -> porId[id]?.let { it to c } }.toMap()
         if (lineas.isEmpty()) return null
         val fecha = if (dia == null || dia == LocalDate.now()) System.currentTimeMillis()
         else dia.atTime(LocalTime.now()).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        repo.registrarVenta(lineas, metodoPago, nombreUsuario, fecha)
+        val consumo = metodoPago == Categorias.CONSUMO
+        // El consumo del equipo no suma sellos.
+        val selloVenta = sello?.takeIf { !consumo && (it.sellos > 0 || it.canje) }
+        repo.registrarVenta(lineas, metodoPago, nombreUsuario, fecha, selloVenta)
         descontarStock(lineas.mapKeys { it.key.id })
         vaciarCarrito()
         // Para el consumo del equipo se devuelve lo que costó.
-        return lineas.entries.sumOf { (p, c) -> (if (metodoPago == Categorias.CONSUMO) p.costo else p.precio) * c }
+        val bruto = lineas.entries.sumOf { (p, c) -> (if (consumo) p.costo else p.precio) * c }
+        return bruto - (selloVenta?.descuento ?: 0.0).coerceIn(0.0, bruto)
     }
+
+    /** Busca un cliente del pasaporte de sellos por el QR escaneado o su código. Null si no existe. */
+    suspend fun buscarCliente(texto: String): Cliente? = repo.buscarCliente(texto)
 
     fun borrarVenta(v: Venta) {
         repo.borrarVenta(v)

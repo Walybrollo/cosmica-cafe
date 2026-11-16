@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +59,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,6 +75,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cosmica.cafeteria.CafeViewModel
 import com.cosmica.cafeteria.data.Categorias
+import com.cosmica.cafeteria.data.Cliente
+import com.cosmica.cafeteria.data.SelloVenta
 import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.Venta
 import com.cosmica.cafeteria.ui.Formato
@@ -97,6 +102,9 @@ private fun String.simple(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
 
 private fun Producto.esCombo() = categoria.simple().contains("combo")
+
+/** Lo que cuenta como café para el pasaporte de sellos: productos de una categoría con "café". */
+private fun Producto.esCafe() = categoria.simple().contains("cafe")
 
 @Composable
 fun VenderScreen(vm: CafeViewModel, snackbar: SnackbarHostState, modifier: Modifier) {
@@ -393,8 +401,21 @@ private fun HojaCobro(
     val costo = lineas.sumOf { it.costo * (carrito[it.id] ?: 0) }
     val quien = vm.usuario.collectAsState().value?.nombre.orEmpty()
 
+    // Pasaporte de sellos del cliente (opcional).
+    var cliente by remember { mutableStateOf<Cliente?>(null) }
+    var sellos by remember { mutableIntStateOf(0) }
+    var canje by remember { mutableStateOf(false) }
+    val cafes = lineas.filter { it.esCafe() }
+    val cantidadCafes = cafes.sumOf { carrito[it.id] ?: 0 }
+    // El café gratis es el más caro de los cafés del pedido (o del pedido, si no hay cafés).
+    val precioGratis = (cafes.ifEmpty { lineas }).maxOfOrNull { it.precio } ?: 0.0
+    val descuento = if (cliente != null && canje && !consumo) precioGratis.coerceAtMost(total) else 0.0
+
     ModalBottomSheet(onDismissRequest = alCerrar, sheetState = estado, containerColor = Tarjeta) {
-        Column(Modifier.padding(horizontal = 18.dp).navigationBarsPadding().padding(bottom = 12.dp)) {
+        Column(
+            Modifier.verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp).navigationBarsPadding().padding(bottom = 12.dp)
+        ) {
             Text("Pedido", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             LazyColumn(Modifier.heightIn(max = 260.dp).padding(top = 6.dp)) {
                 items(lineas, key = { it.id }) { p ->
@@ -438,6 +459,27 @@ private fun HojaCobro(
                     )
                 }
             }
+            if (!consumo) {
+                SeccionPasaporte(
+                    vm = vm,
+                    cliente = cliente,
+                    sellos = sellos,
+                    canje = canje,
+                    precioGratis = precioGratis,
+                    alElegirCliente = { c ->
+                        cliente = c
+                        canje = false
+                        sellos = maxOf(1, cantidadCafes)
+                    },
+                    alQuitarCliente = { cliente = null; canje = false },
+                    alCambiarSellos = { sellos = it.coerceAtLeast(0) },
+                    alCanjear = { quiere ->
+                        canje = quiere
+                        // El café regalado no suma sello.
+                        sellos = if (quiere) (sellos - 1).coerceAtLeast(0) else sellos + 1
+                    },
+                )
+            }
             FilterChip(
                 selected = dia != null,
                 onClick = { eligiendoDia = true },
@@ -447,10 +489,20 @@ private fun HojaCobro(
             )
             Button(
                 onClick = {
-                    vm.cobrar(metodo, dia)?.let { cobrado ->
+                    val sello = cliente?.let { SelloVenta(it, sellos, canje, descuento) }
+                    vm.cobrar(metodo, dia, sello)?.let { cobrado ->
                         val cuando = if (dia == null) "" else " el ${Formato.dia(dia)}"
+                        val pasaporte = sello?.takeIf { !consumo }?.let { s ->
+                            val nombre = s.cliente.nombre.ifBlank { "el cliente" }
+                            when {
+                                s.canje -> " · café gratis canjeado por $nombre"
+                                s.sellos == 1 -> " · 1 sello para $nombre"
+                                s.sellos > 1 -> " · ${s.sellos} sellos para $nombre"
+                                else -> ""
+                            }
+                        }.orEmpty()
                         val texto = if (consumo) "Consumo anotado$cuando (costo ${Formato.dinero(cobrado)})"
-                        else "Venta registrada$cuando: ${Formato.dinero(cobrado)}"
+                        else "Venta registrada$cuando: ${Formato.dinero(cobrado)}$pasaporte"
                         alCobrar(texto)
                     }
                 },
@@ -460,7 +512,7 @@ private fun HojaCobro(
                 contentPadding = PaddingValues(vertical = 14.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             ) {
-                Text(if (consumo) "Anotar consumo de $quien" else "Cobrar ${Formato.dinero(total)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text(if (consumo) "Anotar consumo de $quien" else "Cobrar ${Formato.dinero(total - descuento)}", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             }
         }
     }

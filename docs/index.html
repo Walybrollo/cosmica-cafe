@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pasaporte Cósmico</title>
+<meta name="description" content="Juntá 6 sellos en Cósmica Coffee y el 7mo café va por la casa.">
+<meta name="theme-color" content="#070A16">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono-192.png">
+<link rel="apple-touch-icon" href="icono-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="qrcode.js"></script>
+<style>
+  :root {
+    --fondo: #070A16; --tarjeta: #121733; --tarjeta2: #1B2246; --borde: #232A52;
+    --texto: #EEF0FA; --suave: #9AA3C7; --ambar: #F2B35B; --sobre-ambar: #1A1204;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--fondo); color: var(--texto);
+    font-family: Manrope, system-ui, sans-serif; min-height: 100vh;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, #fff8 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 9%, #fff6 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 64% 32%, #fff5 50%, transparent 51%),
+      radial-gradient(1px 1px at 30% 55%, #fff5 50%, transparent 51%),
+      radial-gradient(1px 1px at 88% 62%, #fff7 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 8% 82%, #fff4 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 90%, #fff6 50%, transparent 51%),
+      radial-gradient(ellipse at 50% -10%, #1B2246 0%, transparent 60%);
+    background-attachment: fixed;
+  }
+  main { max-width: 440px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { text-align: center; padding: 8px 0 4px; }
+  header img { width: 92px; height: auto; }
+  .marca { font-family: Cinzel, serif; font-size: 26px; letter-spacing: 1px; margin: 4px 0 0; }
+  .sub { color: var(--suave); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; margin: 2px 0 0; }
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 22px; padding: 20px; margin-top: 18px; }
+  h2 { font-size: 20px; margin: 0 0 6px; font-weight: 800; }
+  p { line-height: 1.5; margin: 0; }
+  .suave { color: var(--suave); }
+  label { display: block; font-size: 13px; color: var(--suave); margin: 18px 0 6px; }
+  input {
+    width: 100%; font: inherit; font-size: 17px; color: var(--texto); background: var(--tarjeta2);
+    border: 1px solid var(--borde); border-radius: 14px; padding: 14px 16px; outline: none;
+  }
+  input:focus { border-color: var(--ambar); }
+  button {
+    width: 100%; margin-top: 14px; font: inherit; font-weight: 800; font-size: 16px; border: 0; cursor: pointer;
+    background: var(--ambar); color: var(--sobre-ambar); border-radius: 14px; padding: 15px;
+  }
+  button:disabled { opacity: .5; }
+  button.secundario { background: transparent; color: var(--ambar); border: 1px solid #F2B35B99; }
+  [hidden] { display: none !important; }
+
+  /* Órbita de sellos */
+  .orbita { width: 100%; max-width: 320px; display: block; margin: 6px auto 0; overflow: visible; }
+  .anillo { fill: none; stroke: var(--borde); stroke-width: 1.5; stroke-dasharray: 3 6; }
+  .vacio circle { fill: var(--fondo); stroke: #3A4480; stroke-width: 1.5; stroke-dasharray: 4 4; }
+  .vacio text { fill: #6D76A0; font-weight: 800; font-size: 15px; }
+  .sellado { transform-box: fill-box; transform-origin: center; }
+  .sellado.nuevo { animation: pop .9s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes pop { 0% { transform: scale(.2); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .centro circle.base { fill: var(--tarjeta2); stroke: var(--borde); stroke-width: 1.5; }
+  .centro.listo circle.base { fill: var(--ambar); stroke: #FFD9A0; }
+  .centro.listo .taza { fill: var(--sobre-ambar); }
+  .taza { fill: var(--ambar); }
+  .centro text { fill: var(--suave); font-weight: 800; font-size: 11px; letter-spacing: 1px; }
+  .centro.listo text { fill: var(--sobre-ambar); }
+  .halo { fill: none; stroke: var(--ambar); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .centro.listo .halo { animation: halo 2.2s ease-out infinite; }
+  @keyframes halo { 0% { opacity: .8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+
+  .estado { text-align: center; margin-top: 10px; }
+  .estado strong { font-size: 22px; display: block; }
+  .premio { background: linear-gradient(135deg, #F2B35B, #FFCF8A); color: var(--sobre-ambar); border-radius: 16px; padding: 14px; text-align: center; font-weight: 800; margin-top: 14px; }
+  .qr { background: #fff; border-radius: 18px; padding: 14px; width: 220px; margin: 14px auto 0; }
+  .qr svg { width: 100%; height: auto; display: block; }
+  .codigo { text-align: center; font-size: 13px; color: var(--suave); margin-top: 10px; }
+  .codigo b { color: var(--texto); font-size: 20px; letter-spacing: 4px; display: block; }
+  .pie { text-align: center; color: var(--suave); font-size: 12px; margin-top: 22px; line-height: 1.6; }
+  .error { border-color: #4A1820; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="logo.png" alt="Cósmica Coffee">
+    <p class="marca">Cósmica Coffee</p>
+    <p class="sub">Pasaporte de sellos</p>
+  </header>
+
+  <section id="cargando" class="tarjeta"><p class="suave" style="text-align:center">Abriendo tu pasaporte…</p></section>
+
+  <section id="bienvenida" class="tarjeta" hidden>
+    <h2>Sumate al viaje</h2>
+    <p class="suave">Cada café que tomás es un planeta sellado. Juntá <b style="color:var(--texto)">6</b> y el <b style="color:var(--ambar)">7mo va por la casa</b>.</p>
+    <form id="formNombre">
+      <label for="nombre">¿Cómo te llamás?</label>
+      <input id="nombre" maxlength="30" autocomplete="given-name" placeholder="Tu nombre" required>
+      <button id="crear" type="submit">Crear mi pasaporte</button>
+    </form>
+    <button id="yaTengo" class="secundario" type="button">Ya tengo pasaporte: entrar con Google</button>
+  </section>
+
+  <section id="pasaporte" hidden>
+    <div class="tarjeta">
+      <h2 id="titulo" style="text-align:center"></h2>
+      <svg id="orbita" class="orbita" viewBox="0 0 300 300" aria-hidden="true"></svg>
+      <div class="estado" id="estado"></div>
+      <div class="premio" id="premio" hidden></div>
+    </div>
+    <div class="tarjeta" style="text-align:center">
+      <h2>Mostrá este QR al pagar</h2>
+      <p class="suave">Te sellamos un planeta por cada café.</p>
+      <div class="qr" id="qr"></div>
+      <div class="codigo">o decí tu código<b id="codigo"></b></div>
+    </div>
+    <div class="tarjeta" style="text-align:center">
+      <div id="guardar-caja">
+        <button id="guardar" class="secundario" type="button" hidden>Guardar mis sellos con Google</button>
+        <p id="guardado" class="suave" hidden>✓ Sellos guardados en tu cuenta de Google<br><span id="guardadoMail" style="color:var(--texto)"></span></p>
+      </div>
+      <button id="instalar" type="button" hidden>Instalar la app en el teléfono</button>
+      <p class="pie" id="pieInstalar" style="margin-top:12px">Para tenerla como app: en el menú del navegador tocá “Instalar app” o “Agregar a pantalla de inicio”.</p>
+    </div>
+  </section>
+
+  <section id="error" class="tarjeta error" hidden>
+    <h2>No pudimos abrir tu pasaporte</h2>
+    <p class="suave" id="errorTexto"></p>
+    <button onclick="location.reload()">Probar de nuevo</button>
+  </section>
+</main>
+
+<script type="module">
+import { firebaseConfig, SELLOS_PARA_PREMIO as META } from "./config.js";
+
+const $ = (id) => document.getElementById(id);
+const mostrar = (id) => ["cargando", "bienvenida", "pasaporte", "error"].forEach((s) => ($(s).hidden = s !== id));
+const NS = "http://www.w3.org/2000/svg";
+const COLORES = [["#F2B35B", "#B9772A"], ["#8EC5FF", "#3E79C2"], ["#FF8A7A", "#B9473C"], ["#B9A6FF", "#6A55C4"], ["#6FD08C", "#2F8A4C"], ["#F5A3C7", "#B4517E"]];
+const CON_ANILLO = new Set([1, 4]);
+let anteriores = null;
+
+function el(tag, attrs = {}, padre) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (padre) padre.appendChild(e);
+  return e;
+}
+
+function dibujarOrbita(sellos) {
+  const svg = $("orbita");
+  svg.textContent = "";
+  const defs = el("defs", {}, svg);
+  COLORES.forEach(([a, b], i) => {
+    const g = el("radialGradient", { id: "p" + i, cx: "35%", cy: "30%", r: "75%" }, defs);
+    el("stop", { offset: "0%", "stop-color": a }, g);
+    el("stop", { offset: "100%", "stop-color": b }, g);
+  });
+  el("circle", { class: "anillo", cx: 150, cy: 150, r: 108 }, svg);
+  const llenos = Math.min(sellos, META);
+  for (let i = 0; i < META; i++) {
+    const ang = (-90 + (360 / META) * i) * Math.PI / 180;
+    const x = 150 + 108 * Math.cos(ang), y = 150 + 108 * Math.sin(ang);
+    if (i < llenos) {
+      const nuevo = anteriores !== null && i >= anteriores;
+      const g = el("g", { class: "sellado" + (nuevo ? " nuevo" : "") }, svg);
+      if (nuevo) g.style.animationDelay = (i - anteriores) * 0.15 + "s";
+      el("circle", { cx: x, cy: y, r: 23, fill: `url(#p${i})` }, g);
+      if (CON_ANILLO.has(i)) el("ellipse", { cx: x, cy: y, rx: 34, ry: 9, fill: "none", stroke: COLORES[i][0], "stroke-width": 2.5, opacity: .8, transform: `rotate(-20 ${x} ${y})` }, g);
+      el("circle", { cx: x - 7, cy: y - 8, r: 4, fill: "#fff", opacity: .35 }, g);
+    } else {
+      const g = el("g", { class: "vacio" }, svg);
+      el("circle", { cx: x, cy: y, r: 22 }, g);
+      const t = el("text", { x, y: y + 5, "text-anchor": "middle" }, g);
+      t.textContent = i + 1;
+    }
+  }
+  const listo = sellos >= META;
+  const c = el("g", { class: "centro" + (listo ? " listo" : "") }, svg);
+  el("circle", { class: "halo", cx: 150, cy: 150, r: 46 }, c);
+  el("circle", { class: "base", cx: 150, cy: 150, r: 46 }, c);
+  // Taza de café
+  const taza = el("g", { class: "taza", transform: "translate(150 140)" }, c);
+  el("path", { d: "M-16 -10 H12 V4 A14 14 0 0 1 -2 18 A14 14 0 0 1 -16 4 Z" }, taza);
+  el("path", { d: "M12 -5 A8 8 0 0 1 12 11", fill: "none", stroke: listo ? "#1A1204" : "#F2B35B", "stroke-width": 4 }, taza);
+  const t = el("text", { x: 150, y: 177, "text-anchor": "middle" }, c);
+  t.textContent = listo ? "¡GRATIS!" : "7° GRATIS";
+  anteriores = llenos;
+}
+
+function dibujarQR(texto) {
+  const q = qrcode(0, "M");
+  q.addData(texto);
+  q.make();
+  $("qr").innerHTML = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
+}
+
+function pintar(c) {
+  const nombre = (c.nombre || "").trim();
+  $("titulo").textContent = nombre ? `Pasaporte de ${nombre}` : "Tu pasaporte";
+  dibujarOrbita(c.sellos || 0);
+  const s = c.sellos || 0;
+  const faltan = META - s;
+  const gratis = Math.floor(s / META);
+  $("estado").innerHTML = s >= META
+    ? `<strong>¡Misión cumplida!</strong><span class="suave">Tenés tu café de regalo</span>`
+    : `<strong>${s} de ${META}</strong><span class="suave">${faltan === 1 ? "¡Te falta 1 café para el gratis!" : `Te faltan ${faltan} cafés para el gratis`}</span>`;
+  $("premio").hidden = s < META;
+  $("premio").textContent = gratis > 1 ? `Tenés ${gratis} cafés gratis. Pedilos cuando quieras.` : "Mostrá tu QR y pedí tu café gratis ☕";
+  $("codigo").textContent = c.codigo || "";
+  dibujarQR(c.qr);
+  mostrar("pasaporte");
+}
+
+function nuevoCodigo() {
+  const letras = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const r = crypto.getRandomValues(new Uint32Array(6));
+  return Array.from(r, (n) => letras[n % letras.length]).join("");
+}
+
+function fallar(texto) {
+  $("errorTexto").textContent = texto;
+  mostrar("error");
+}
+
+// Vista de muestra sin conexión: index.html?demo=4
+const demo = new URLSearchParams(location.search).get("demo");
+if (demo !== null) {
+  pintar({ nombre: "Ana", sellos: Number(demo) || 0, codigo: "K7P2QX", qr: "demo-cliente-cosmica" });
+  $("guardar").hidden = false;
+} else {
+  iniciar().catch((e) => fallar("Revisá tu conexión a internet. (" + (e.code || e.message) + ")"));
+}
+
+async function iniciar() {
+  const v = "10.14.1";
+  const [{ initializeApp }, auth, fs] = await Promise.all([
+    import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`),
+    import(`https://www.gstatic.com/firebasejs/${v}/firebase-auth.js`),
+    import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`),
+  ]);
+  const app = initializeApp(firebaseConfig);
+  const a = auth.getAuth(app);
+  const db = fs.getFirestore(app);
+  const google = new auth.GoogleAuthProvider();
+  google.setCustomParameters({ prompt: "select_account" });
+  let ref = null;
+  let cortar = null;
+
+  // Cada teléfono arranca con un usuario anónimo (sin correo ni contraseña).
+  // Si el cliente lo vincula con Google, el mismo pasaporte se recupera en cualquier teléfono.
+  auth.onAuthStateChanged(a, (u) => {
+    if (cortar) { cortar(); cortar = null; }
+    if (!u) {
+      auth.signInAnonymously(a).catch((e) => fallar("Revisá tu conexión a internet. (" + e.code + ")"));
+      return;
+    }
+    const conGoogle = u.providerData.some((p) => p.providerId === "google.com");
+    $("guardar").hidden = conGoogle;
+    $("guardado").hidden = !conGoogle;
+    $("guardadoMail").textContent = u.email || "";
+    $("yaTengo").hidden = conGoogle;
+    ref = fs.doc(db, "clientes", u.uid);
+    cortar = fs.onSnapshot(ref, (snap) => {
+      if (!snap.exists()) {
+        $("nombre").value = $("nombre").value || (u.displayName || "").split(" ")[0];
+        mostrar("bienvenida");
+        return;
+      }
+      pintar({ ...snap.data(), qr: u.uid });
+    }, (e) => fallar("No se pudo leer tu pasaporte. (" + e.code + ")"));
+  });
+
+  $("formNombre").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const nombre = $("nombre").value.trim().slice(0, 30);
+    if (!nombre || !ref) return;
+    $("crear").disabled = true;
+    try {
+      await fs.setDoc(ref, { nombre, codigo: nuevoCodigo(), sellos: 0, canjes: 0, creado: fs.serverTimestamp() });
+    } catch (e) {
+      fallar("No se pudo crear el pasaporte. (" + e.code + ")");
+    } finally {
+      $("crear").disabled = false;
+    }
+  });
+
+  // Guardar los sellos en la cuenta de Google (vincula el usuario anónimo, mantiene los sellos).
+  $("guardar").addEventListener("click", async () => {
+    try {
+      await auth.linkWithPopup(a.currentUser, google);
+      await a.currentUser.reload();
+      $("guardar").hidden = true; $("guardado").hidden = false;
+      $("guardadoMail").textContent = a.currentUser.email || "";
+    } catch (e) {
+      if (e.code === "auth/credential-already-in-use") {
+        // Esa cuenta ya tenía un pasaporte: se abre ese.
+        const cred = auth.GoogleAuthProvider.credentialFromError(e);
+        if (cred) await auth.signInWithCredential(a, cred);
+      } else if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        alert("No se pudo conectar con Google (" + e.code + ").");
+      }
+    }
+  });
+
+  // En un teléfono nuevo: entrar con la cuenta de Google donde quedó guardado el pasaporte.
+  $("yaTengo").addEventListener("click", async () => {
+    try {
+      await auth.signInWithPopup(a, google);
+    } catch (e) {
+      if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") {
+        alert("No se pudo entrar con Google (" + e.code + ").");
+      }
+    }
+  });
+}
+
+// Instalar como app: Android/Chrome ofrece el botón; en iPhone se explica cómo.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+let pedidoInstalar = null;
+const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  pedidoInstalar = e;
+  $("instalar").hidden = false;
+});
+$("instalar").addEventListener("click", async () => {
+  if (!pedidoInstalar) return;
+  pedidoInstalar.prompt();
+  await pedidoInstalar.userChoice;
+  pedidoInstalar = null;
+  $("instalar").hidden = true;
+});
+const esIphone = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (instalada) $("pieInstalar").hidden = true;
+else if (esIphone) $("pieInstalar").textContent = "Para tenerla como app: tocá Compartir y después \u201cAgregar a inicio\u201d.";
+</script>
+</body>
+</html>

@@ -104,7 +104,7 @@ fun VentasScreen(vm: CafeViewModel, modifier: Modifier) {
                     Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                listOf(Formato.fechaHora(v.fecha), v.metodoPago, v.vendedor).filter { it.isNotBlank() }.joinToString(" · "),
+                                listOf(Formato.fechaHora(v.fecha), v.metodoPago, v.vendedor, v.clienteNombre.takeIf { it.isNotBlank() }?.let { "Pasaporte de $it" }.orEmpty()).filter { it.isNotBlank() }.joinToString(" · "),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = TextoSuave,
                             )
