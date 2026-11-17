@@ -207,6 +207,8 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
                 descuento = sello?.descuento ?: 0.0,
                 clienteId = sello?.cliente?.id.orEmpty(),
                 clienteNombre = sello?.cliente?.nombre.orEmpty(),
+                sellos = sello?.sellos ?: 0,
+                canje = sello?.canje ?: false,
             )
         )
         sello?.let { sellar(it) }
@@ -233,6 +235,16 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
         clientes.document(s.cliente.id).update(datos)
     }
 
+    /** Deshace lo que una venta borrada le hizo al pasaporte: le quita los sellos y le devuelve el café gratis. */
+    private fun desellar(v: Venta) {
+        if (v.clienteId.isEmpty() || (v.sellos == 0 && !v.canje)) return
+        val cambio = -v.sellos + if (v.canje) Pasaporte.SELLOS_PARA_PREMIO else 0
+        val datos = mutableMapOf<String, Any>()
+        if (cambio != 0) datos["sellos"] = FieldValue.increment(cambio.toLong())
+        if (v.canje) datos["canjes"] = FieldValue.increment(-1)
+        if (datos.isNotEmpty()) clientes.document(v.clienteId).update(datos)
+    }
+
     /** Guarda una venta nueva o editada; el total y el costo se recalculan con los productos y el descuento. */
     fun guardarVenta(v: Venta) {
         val items = v.items.filter { it.cantidad > 0 }
@@ -251,6 +263,8 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
                 "vendedor" to v.vendedor,
                 "clienteId" to v.clienteId,
                 "clienteNombre" to v.clienteNombre,
+                "sellos" to v.sellos,
+                "canje" to v.canje,
                 "items" to items.map {
                     mapOf(
                         "productoId" to it.productoId,
@@ -266,6 +280,7 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
 
     fun borrarVenta(v: Venta) {
         ventas.document(v.id).delete()
+        desellar(v)
     }
 
     fun guardarGasto(g: Gasto) {
@@ -318,6 +333,8 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
             descuento = d.getDouble("descuento") ?: 0.0,
             clienteId = d.getString("clienteId") ?: "",
             clienteNombre = d.getString("clienteNombre") ?: "",
+            sellos = d.getLong("sellos")?.toInt() ?: 0,
+            canje = d.getBoolean("canje") ?: false,
         )
     }
 

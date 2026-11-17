@@ -207,8 +207,9 @@ function dibujarQR(texto) {
 function pintar(c) {
   const nombre = (c.nombre || "").trim();
   $("titulo").textContent = nombre ? `Pasaporte de ${nombre}` : "Tu pasaporte";
-  dibujarOrbita(c.sellos || 0);
-  const s = c.sellos || 0;
+  // Nunca menos de 0 (puede pasar si se borra una venta después de canjear).
+  const s = Math.max(0, c.sellos || 0);
+  dibujarOrbita(s);
   const faltan = META - s;
   const gratis = Math.floor(s / META);
   $("estado").innerHTML = s >= META
