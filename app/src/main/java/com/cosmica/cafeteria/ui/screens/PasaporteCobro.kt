@@ -177,7 +177,7 @@ fun SeccionPasaporte(
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
                     Text(cliente.nombre.ifBlank { "Cliente ${cliente.codigo}" }, fontWeight = FontWeight.Bold)
                     Text(
-                        "${minOf(cliente.sellos, meta)} de $meta sellos" + if (cliente.sellos > meta) " (+${cliente.sellos - meta})" else "",
+                        "${cliente.sellos.coerceIn(0, meta)} de $meta sellos" + if (cliente.sellos > meta) " (+${cliente.sellos - meta})" else "",
                         color = TextoSuave,
                         fontSize = 12.sp,
                     )

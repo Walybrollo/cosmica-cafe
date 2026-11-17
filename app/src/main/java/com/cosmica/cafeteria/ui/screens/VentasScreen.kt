@@ -327,7 +327,16 @@ private fun DialogoEditarVenta(
         AlertDialog(
             onDismissRequest = { confirmarBorrar = false },
             title = { Text("¿Borrar esta venta?") },
-            text = { Text("${Formato.fechaHora(venta.fecha)} por ${Formato.dinero(venta.total)}. Se descuenta del balance.") },
+            text = {
+                val pasaporte = if (venta.clienteId.isEmpty()) "" else {
+                    val quien = venta.clienteNombre.ifBlank { "el cliente" }
+                    listOfNotNull(
+                        when (venta.sellos) { 0 -> null; 1 -> "se le quita 1 sello"; else -> "se le quitan ${venta.sellos} sellos" },
+                        if (venta.canje) "se le devuelve el café gratis" else null,
+                    ).takeIf { it.isNotEmpty() }?.joinToString(" y ", prefix = " A $quien ", postfix = ".").orEmpty()
+                }
+                Text("${Formato.fechaHora(venta.fecha)} por ${Formato.dinero(venta.total)}. Se descuenta del balance.$pasaporte")
+            },
             confirmButton = { TextButton(onClick = { confirmarBorrar = false; alBorrar() }) { Text("Borrar") } },
             dismissButton = { TextButton(onClick = { confirmarBorrar = false }) { Text("Cancelar") } },
         )

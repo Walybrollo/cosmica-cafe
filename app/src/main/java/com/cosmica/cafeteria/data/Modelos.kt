@@ -35,6 +35,9 @@ data class Venta(
     /** Cliente del pasaporte de sellos al que se le sellaron cafés en esta venta (vacío si ninguno). */
     val clienteId: String = "",
     val clienteNombre: String = "",
+    /** Sellos que se le sumaron al cliente con esta venta y si canjeó su café gratis (para devolverlos si se borra). */
+    val sellos: Int = 0,
+    val canje: Boolean = false,
 )
 
 val Venta.subtotal: Double get() = items.sumOf { it.cantidad * it.precioUnitario }
