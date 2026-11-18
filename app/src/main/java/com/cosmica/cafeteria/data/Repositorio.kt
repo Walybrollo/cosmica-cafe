@@ -141,8 +141,12 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
             "productoId" to i.productoId,
         )
         // Al editar no se toca la cantidad, que la cambian las ventas, compras y conteos.
-        if (i.id.isEmpty()) insumos.document().set(datos + ("cantidad" to i.cantidad))
-        else insumos.document(i.id).update(datos)
+        if (i.id.isEmpty()) {
+            val nuevo = insumos.document()
+            nuevo.set(datos + ("cantidad" to i.cantidad))
+            // Marca desde cuándo se controla, para calcular bien el consumo por día. No cuenta como consumo.
+            anotarMovimiento(nuevo.id, i.cantidad, "inicial", siempre = true)
+        } else insumos.document(i.id).update(datos)
     }
 
     fun borrarInsumo(id: String) {
@@ -159,12 +163,35 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     /** Deja el stock en lo que se contó y anota la diferencia como consumo. */
     fun contarStock(insumoId: String, anterior: Double, contado: Double) {
         insumos.document(insumoId).update("cantidad", contado)
-        anotarMovimiento(insumoId, contado - anterior, "conteo")
+        anotarMovimiento(insumoId, contado - anterior, "conteo", siempre = true)
     }
 
-    private fun anotarMovimiento(insumoId: String, cambio: Double, tipo: String) {
+    /**
+     * Corrige un error al cargar el stock (ej: se cargaron 6 kg y eran 5).
+     * Si después ya se hizo un conteo, la cantidad ya está bien y solo se corrige el consumo calculado
+     * (tipo "correccion", que sí cuenta). Si no, se arregla la cantidad sin contarlo como consumo.
+     */
+    fun corregirCarga(insumoId: String, cargado: Double, real: Double, yaContado: Boolean, fecha: Long) {
+        val diferencia = cargado - real
+        if (diferencia == 0.0) return
+        if (yaContado) {
+            anotarMovimiento(insumoId, diferencia, "correccion", fecha)
+        } else {
+            insumos.document(insumoId).update("cantidad", FieldValue.increment(-diferencia))
+            anotarMovimiento(insumoId, -diferencia, "error_carga", fecha)
+        }
+    }
+
+    private fun anotarMovimiento(
+        insumoId: String,
+        cambio: Double,
+        tipo: String,
+        fecha: Long = System.currentTimeMillis(),
+        siempre: Boolean = false,
+    ) {
+        if (cambio == 0.0 && !siempre) return
         movimientos.document().set(
-            mapOf("insumoId" to insumoId, "fecha" to System.currentTimeMillis(), "tipo" to tipo, "cambio" to cambio)
+            mapOf("insumoId" to insumoId, "fecha" to fecha, "tipo" to tipo, "cambio" to cambio)
         )
     }
 

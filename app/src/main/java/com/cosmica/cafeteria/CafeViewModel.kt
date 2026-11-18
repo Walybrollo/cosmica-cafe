@@ -185,6 +185,18 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     fun comprarInsumo(i: Insumo, cantidad: Double) = repo.moverStock(i.id, cantidad, "compra")
     fun contarInsumo(i: Insumo, contado: Double) = repo.contarStock(i.id, i.cantidad, contado)
 
+    /** Si hubo un conteo en los últimos 30 días (entonces la cantidad actual ya es la real). */
+    fun huboConteo(i: Insumo): Boolean = movimientos.value.any { it.insumoId == i.id && it.tipo == "conteo" }
+
+    /** Arregla un error de carga: se cargó [cargado] pero había [real], hace [haceDias] días. */
+    fun corregirCarga(i: Insumo, cargado: Double, real: Double, haceDias: Int) {
+        val ahora = System.currentTimeMillis()
+        val conteos = movimientos.value.filter { it.insumoId == i.id && it.tipo == "conteo" }
+        // La corrección va antes del primer conteo, así la cuenta de días arranca cuando se cargó.
+        val fecha = (ahora - haceDias * DIA_MS).coerceAtMost((conteos.minOfOrNull { it.fecha } ?: ahora) - 1)
+        repo.corregirCarga(i.id, cargado, real, yaContado = conteos.isNotEmpty(), fecha = fecha)
+    }
+
     /** Resta del stock lo vendido (o lo devuelve, con [signo] = 1) en los insumos ligados a productos. */
     private fun descontarStock(cantidades: Map<String, Int>, signo: Int = -1) {
         insumos.value.filter { it.productoId.isNotEmpty() }.forEach { i ->
@@ -340,11 +352,12 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         }
 
         /**
-         * Consumo por día según los últimos 30 días: lo que bajó con ventas y conteos.
+         * Consumo por día según los últimos 30 días: lo que bajó con ventas y conteos
+         * (menos las correcciones de errores de carga). Compras, carga inicial y errores no cuentan.
          * Hace falta al menos un día de datos para estimar.
          */
         fun estadoDe(i: Insumo, movs: List<MovimientoStock>, ahora: Long = System.currentTimeMillis()): EstadoInsumo {
-            val usos = movs.filter { it.tipo == "venta" || it.tipo == "conteo" || it.tipo == "ajuste" }
+            val usos = movs.filter { it.tipo == "venta" || it.tipo == "conteo" || it.tipo == "ajuste" || it.tipo == "correccion" }
             val consumo = -usos.sumOf { it.cambio }
             val desde = movs.minOfOrNull { it.fecha }
             val dias = desde?.let { (ahora - it).toDouble() / DIA_MS } ?: 0.0

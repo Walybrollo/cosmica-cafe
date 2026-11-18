@@ -58,6 +58,7 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
     var editando by remember { mutableStateOf<Insumo?>(null) }
     var comprando by remember { mutableStateOf<Insumo?>(null) }
     var contando by remember { mutableStateOf<Insumo?>(null) }
+    var corrigiendo by remember { mutableStateOf<Insumo?>(null) }
     val paraComprar = stock.filter { it.hayQueComprar }
 
     Box(modifier.fillMaxSize()) {
@@ -116,6 +117,7 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
             alCerrar = { editando = null },
             alGuardar = { vm.guardarInsumo(it); editando = null },
             alBorrar = { vm.borrarInsumo(i); editando = null },
+            alCorregir = { editando = null; corrigiendo = i },
         )
     }
     comprando?.let { i ->
@@ -131,6 +133,60 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
             alCerrar = { contando = null },
         ) { vm.contarInsumo(i, it); contando = null }
     }
+    corrigiendo?.let { i ->
+        DialogoCorreccion(
+            insumo = i,
+            yaContado = vm.huboConteo(i),
+            alCerrar = { corrigiendo = null },
+        ) { cargado, real, dias -> vm.corregirCarga(i, cargado, real, dias); corrigiendo = null }
+    }
+}
+
+/** Para cuando se cargó mal el stock (ej: se pusieron 6 kg y eran 5). */
+@Composable
+private fun DialogoCorreccion(
+    insumo: Insumo,
+    yaContado: Boolean,
+    alCerrar: () -> Unit,
+    alGuardar: (cargado: Double, real: Double, haceDias: Int) -> Unit,
+) {
+    var cargado by remember { mutableStateOf("") }
+    var real by remember { mutableStateOf("") }
+    var dias by remember { mutableStateOf("") }
+    val cargadoNum = Formato.leerNumero(cargado)
+    val realNum = Formato.leerNumero(real)
+    val diasNum = if (dias.isBlank()) 0 else dias.trim().toIntOrNull()
+    val valido = cargadoNum != null && realNum != null && diasNum != null && diasNum >= 0 && cargadoNum != realNum
+    val u = insumo.unidad
+    AlertDialog(
+        onDismissRequest = alCerrar,
+        title = { Text("Corregir error de carga") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Si cargaste mal cuánto había de ${insumo.nombre}, arreglalo acá para que el consumo se calcule bien.", color = TextoSuave)
+                CampoNumero(cargado, "Lo que cargué ($u)") { cargado = it }
+                CampoNumero(real, "Lo que había en realidad ($u)") { real = it }
+                CampoNumero(dias, "¿Hace cuántos días lo cargaste?") { dias = it }
+                if (cargadoNum != null && realNum != null && cargadoNum != realNum) {
+                    val dif = cargadoNum - realNum
+                    val queda = if (yaContado) insumo.cantidad else insumo.cantidad - dif
+                    Text(
+                        (if (yaContado) "Como ya hiciste un conteo, el stock queda en ${Formato.cantidad(queda)} $u y " +
+                            "se corrige el consumo calculado (${if (dif > 0) "se resta" else "se suma"} " +
+                            "${Formato.cantidad(kotlin.math.abs(dif))} $u)."
+                        else "El stock pasa a ${Formato.cantidad(queda)} $u. No cuenta como consumo."),
+                        color = Ambar,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valido, onClick = { alGuardar(cargadoNum ?: 0.0, realNum ?: 0.0, diasNum ?: 0) }) {
+                Text("Corregir")
+            }
+        },
+        dismissButton = { TextButton(onClick = alCerrar) { Text("Cancelar") } },
+    )
 }
 
 @Composable
@@ -206,6 +262,7 @@ private fun DialogoInsumo(
     alCerrar: () -> Unit,
     alGuardar: (Insumo) -> Unit,
     alBorrar: () -> Unit,
+    alCorregir: () -> Unit,
 ) {
     val nuevo = insumo.id.isEmpty()
     var nombre by remember { mutableStateOf(insumo.nombre) }
@@ -255,6 +312,7 @@ private fun DialogoInsumo(
                     }
                 }
                 if (ligado != null) TextButton(onClick = { productoId = "" }) { Text("No ligar a ningún producto") }
+                if (!nuevo) TextButton(onClick = alCorregir) { Text("Corregir un error de carga") }
                 if (!nuevo) TextButton(onClick = { confirmarBorrar = true }) { Text("Borrar insumo", color = Perdida) }
             }
         },
