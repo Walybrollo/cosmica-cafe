@@ -15,6 +15,11 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import com.cosmica.cafeteria.ui.DibujoProducto
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -93,8 +98,11 @@ private fun ProductosScreen(vm: CafeViewModel, modifier: Modifier) {
                     }
                 }
                 items(productos, key = { it.id }) { p ->
+                    val fondoTarjeta = CardDefaults.cardColors().containerColor
                     Card(onClick = { editando = p }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            DibujoProducto(p.nombre, fondoTarjeta, Modifier.size(40.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(p.nombre, fontWeight = FontWeight.SemiBold)
                                 Text(
