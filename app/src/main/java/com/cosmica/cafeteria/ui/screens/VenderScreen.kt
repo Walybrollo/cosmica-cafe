@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -79,6 +78,7 @@ import com.cosmica.cafeteria.data.Cliente
 import com.cosmica.cafeteria.data.SelloVenta
 import com.cosmica.cafeteria.data.Producto
 import com.cosmica.cafeteria.data.Venta
+import com.cosmica.cafeteria.ui.DibujoProducto
 import com.cosmica.cafeteria.ui.Formato
 import com.cosmica.cafeteria.ui.Opciones
 import com.cosmica.cafeteria.ui.theme.Ambar
@@ -251,19 +251,22 @@ private fun Mosaico(p: Producto, cantidad: Int, alTocar: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         color = if (cantidad > 0) Tarjeta2 else Tarjeta,
         border = BorderStroke(1.dp, if (cantidad > 0) Ambar.copy(alpha = 0.6f) else Borde),
-        modifier = Modifier.height(88.dp),
+        modifier = Modifier.height(116.dp),
     ) {
-        Box(Modifier.padding(10.dp)) {
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    p.nombre,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(end = if (cantidad > 0) 22.dp else 0.dp),
-                )
+        Box(Modifier.padding(horizontal = 6.dp, vertical = 10.dp)) {
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                DibujoProducto(p.nombre, if (cantidad > 0) Tarjeta2 else Tarjeta, Modifier.size(34.dp))
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(
+                        p.nombre,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                    )
+                }
                 Text(Formato.dinero(p.precio), color = Ambar, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
             }
             if (cantidad > 0) Insignia(cantidad, Modifier.align(Alignment.TopEnd))
@@ -294,6 +297,8 @@ private fun FilaResultado(p: Producto, cantidad: Int, alTocar: () -> Unit) {
     Surface(onClick = alTocar, color = MaterialTheme.colorScheme.background) {
         Column {
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                DibujoProducto(p.nombre, MaterialTheme.colorScheme.background, Modifier.size(32.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(p.nombre, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     Text("${p.categoria} · ${Formato.dinero(p.precio)}", color = TextoSuave, fontSize = 12.sp)
@@ -314,7 +319,7 @@ private fun FilaCombo(p: Producto, cantidad: Int, alTocar: () -> Unit) {
         border = BorderStroke(1.dp, if (cantidad > 0) Ambar.copy(alpha = 0.6f) else Borde),
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.LocalCafe, contentDescription = null, tint = Ambar)
+            DibujoProducto(p.nombre, Tarjeta, Modifier.size(36.dp))
             Text(
                 p.nombre,
                 Modifier.weight(1f).padding(horizontal = 12.dp),
