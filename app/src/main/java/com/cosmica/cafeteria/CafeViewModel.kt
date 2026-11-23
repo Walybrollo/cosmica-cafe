@@ -45,7 +45,12 @@ data class EstadoInsumo(
 data class Balance(
     val ingresos: Double = 0.0,
     val costoMercaderia: Double = 0.0,
+    /** Gastos que restan (alquiler, servicios...). No incluye las compras de mercadería. */
     val gastos: Double = 0.0,
+    /** Compras de mercadería del mes: solo informativo, ya están dentro del costo de lo vendido. */
+    val comprasMercaderia: Double = 0.0,
+    /** Rubro de mercadería -> lo comprado en el mes. */
+    val comprasPorRubro: Map<String, Double> = emptyMap(),
     val cantidadVentas: Int = 0,
     val porMetodoPago: Map<String, Double> = emptyMap(),
     val porVendedor: Map<String, Double> = emptyMap(),
@@ -163,6 +168,12 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
     )
 
     // ---- Stock ----
+
+    /** Rubros de mercadería: los que vienen de entrada más los creados por el equipo. */
+    val rubros: StateFlow<List<String>> = estado(
+        conSesion { repo.rubros() }.map { (Categorias.rubros + it).distinctBy { r -> r.lowercase() } },
+        Categorias.rubros,
+    )
 
     val insumos: StateFlow<List<Insumo>> = estado(
         conSesion { repo.insumos() }.map { l -> l.sortedBy { it.nombre.lowercase() } },
@@ -308,6 +319,7 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
 
     fun guardarGasto(g: Gasto, compra: Pair<Insumo, Double>? = null) {
         repo.guardarGasto(if (g.id.isEmpty()) g.copy(cargadoPor = nombreUsuario) else g)
+        if (g.mercaderia && rubros.value.none { it.equals(g.categoria, ignoreCase = true) }) repo.guardarRubro(g.categoria)
         compra?.let { (i, c) -> comprarInsumo(i, c) }
     }
     fun borrarGasto(g: Gasto) = repo.borrarGasto(g)
@@ -317,7 +329,8 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         private const val DIA_MS = 24L * 60 * 60 * 1000
         private const val DIAS_CONSUMO = 30L
 
-        fun armarBalance(todas: List<Venta>, g: List<Gasto>): Balance {
+        fun armarBalance(todas: List<Venta>, todosLosGastos: List<Gasto>): Balance {
+            val (compras, g) = todosLosGastos.partition { it.mercaderia }
             val zona = ZoneId.systemDefault()
             val v = todas.filter { !it.esConsumo }
             val consumos = todas.filter { it.esConsumo }
@@ -326,6 +339,8 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
                 ingresos = v.sumOf { it.total },
                 costoMercaderia = v.sumOf { it.costoTotal },
                 gastos = g.sumOf { it.monto },
+                comprasMercaderia = compras.sumOf { it.monto },
+                comprasPorRubro = compras.groupBy { it.categoria }.mapValues { (_, l) -> l.sumOf { it.monto } },
                 cantidadVentas = v.size,
                 porMetodoPago = v.groupBy { it.metodoPago }.mapValues { (_, l) -> l.sumOf { it.total } },
                 porVendedor = v.groupBy { it.vendedor.ifBlank { "Sin nombre" } }

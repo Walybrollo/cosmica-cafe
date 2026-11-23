@@ -56,7 +56,6 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
     val stock by vm.stock.collectAsState()
     val menu by vm.menu.collectAsState()
     var editando by remember { mutableStateOf<Insumo?>(null) }
-    var comprando by remember { mutableStateOf<Insumo?>(null) }
     var contando by remember { mutableStateOf<Insumo?>(null) }
     var corrigiendo by remember { mutableStateOf<Insumo?>(null) }
     val paraComprar = stock.filter { it.hayQueComprar }
@@ -68,7 +67,7 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
                     Text(
                         "Cargá los insumos que querés controlar.\n\n" +
                             "Los que se venden por unidad (alfajores, galletas) se descuentan solos al vender.\n\n" +
-                            "Los de granel (café, leche, vasos) se suman cuando cargás una compra y se corrigen " +
+                            "Los de granel (café, leche, vasos) se suman cuando cargás la compra en Gastos (Mercadería) y se corrigen " +
                             "con un conteo cada tanto. Con eso la app calcula para cuántos días te alcanza.",
                         Modifier.fillMaxWidth().padding(24.dp),
                         textAlign = TextAlign.Center,
@@ -87,6 +86,10 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
                             Column(Modifier.padding(start = 12.dp)) {
                                 Text("Para comprar", fontWeight = FontWeight.Bold)
                                 Text(paraComprar.joinToString { it.insumo.nombre })
+                                Text(
+                                    "Al comprar, cargalo en Gastos como Mercadería y se suma solo al stock.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                             }
                         }
                     }
@@ -97,7 +100,6 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
                     e,
                     producto = menu.firstOrNull { it.id == e.insumo.productoId },
                     alEditar = { editando = e.insumo },
-                    alComprar = { comprando = e.insumo },
                     alContar = { contando = e.insumo },
                 )
             }
@@ -119,11 +121,6 @@ fun StockScreen(vm: CafeViewModel, modifier: Modifier) {
             alBorrar = { vm.borrarInsumo(i); editando = null },
             alCorregir = { editando = null; corrigiendo = i },
         )
-    }
-    comprando?.let { i ->
-        DialogoCantidad("Compra de ${i.nombre}", "Cantidad comprada (${i.unidad})", alCerrar = { comprando = null }) {
-            vm.comprarInsumo(i, it); comprando = null
-        }
     }
     contando?.let { i ->
         DialogoCantidad(
@@ -194,7 +191,6 @@ private fun TarjetaInsumo(
     e: EstadoInsumo,
     producto: Producto?,
     alEditar: () -> Unit,
-    alComprar: () -> Unit,
     alContar: () -> Unit,
 ) {
     val i = e.insumo
@@ -224,7 +220,6 @@ private fun TarjetaInsumo(
                 Text(detalle.joinToString(" · ").replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall, color = TextoSuave)
             }
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = alComprar) { Text("Compré") }
                 OutlinedButton(onClick = alContar) { Text("Conté") }
             }
         }

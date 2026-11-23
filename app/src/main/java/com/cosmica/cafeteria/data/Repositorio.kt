@@ -37,6 +37,7 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     private val insumos = db.collection("insumos")
     private val movimientos = db.collection("movimientos")
     private val clientes = db.collection("clientes")
+    private val rubros = db.collection("rubros")
 
     private val _problema = MutableStateFlow<String?>(null)
     /** Motivo por el que no se pueden leer los datos de internet, o null si anda bien. */
@@ -126,6 +127,13 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     }
 
     fun insumos(): Flow<List<Insumo>> = escuchar("stock", insumos, ::aInsumo)
+
+    /** Rubros de mercadería creados por el equipo (además de los que vienen de entrada). */
+    fun rubros(): Flow<List<String>> = escuchar("rubros", rubros) { it.getString("nombre") }
+
+    fun guardarRubro(nombre: String) {
+        rubros.document(nombre.lowercase().replace("/", "-")).set(mapOf("nombre" to nombre))
+    }
 
     fun movimientosDesde(desde: Long): Flow<List<MovimientoStock>> = escuchar(
         "stock",
@@ -319,6 +327,7 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
                 "categoria" to g.categoria,
                 "monto" to g.monto,
                 "cargadoPor" to g.cargadoPor,
+                "mercaderia" to g.mercaderia,
             )
         )
     }
@@ -408,13 +417,16 @@ class Repositorio(private val db: FirebaseFirestore = FirebaseFirestore.getInsta
     }
 
     private fun aGasto(d: DocumentSnapshot): Gasto? = d.getLong("fecha")?.let { fecha ->
+        val categoria = d.getString("categoria") ?: "Otros"
         Gasto(
             id = d.id,
             fecha = fecha,
             descripcion = d.getString("descripcion") ?: "",
-            categoria = d.getString("categoria") ?: "Otros",
+            categoria = categoria,
             monto = d.getDouble("monto") ?: 0.0,
             cargadoPor = d.getString("cargadoPor") ?: "",
+            // Los gastos viejos no tienen el campo: los de "Insumos" eran compras de mercadería.
+            mercaderia = d.getBoolean("mercaderia") ?: (categoria == Categorias.MERCADERIA),
         )
     }
 }
