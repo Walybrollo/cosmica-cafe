@@ -100,6 +100,13 @@ fun BalanceScreen(vm: CafeViewModel, modifier: Modifier) {
             if (b.descuentos > 0) {
                 Text("Descuentos dados: ${Formato.dinero(b.descuentos)}", style = MaterialTheme.typography.bodySmall)
             }
+            if (b.comprasMercaderia > 0) {
+                Text(
+                    "Compras de mercadería: ${Formato.dinero(b.comprasMercaderia)}. Ya están dentro del costo de lo vendido, " +
+                        "por eso no se restan de nuevo.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
 
         if (b.consumosPorPersona.isNotEmpty()) {
@@ -219,7 +226,7 @@ fun BalanceScreen(vm: CafeViewModel, modifier: Modifier) {
             }
         }
 
-        if (b.cantidadVentas == 0 && b.gastos == 0.0) {
+        if (b.cantidadVentas == 0 && b.gastos == 0.0 && b.comprasMercaderia == 0.0) {
             Text(
                 "Todavía no hay movimientos en este mes.",
                 Modifier.padding(16.dp),

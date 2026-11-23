@@ -114,7 +114,12 @@ data class ResumenProducto(
 
 object Categorias {
     val productos = listOf("Cafés", "Bebidas", "Comidas", "Dulces", "Otros")
-    val gastos = listOf("Insumos", "Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
+    /**
+     * Compras de mercadería (leche, café, vasos, medialunas...). Su costo ya entra en el costo de cada producto
+     * vendido, así que el balance las muestra pero no las vuelve a restar.
+     */
+    const val MERCADERIA = "Insumos"
+    val gastos = listOf(MERCADERIA, "Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
     val metodosPago = listOf("Efectivo", "Tarjeta", "Transferencia")
     /** Lo que consume el equipo (desayunos, meriendas): no es venta, se cuenta a costo. */
     const val CONSUMO = "Consumo del equipo"

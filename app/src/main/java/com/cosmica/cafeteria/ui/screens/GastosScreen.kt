@@ -127,7 +127,7 @@ private fun DialogoGasto(
     var monto by remember { mutableStateOf(if (gasto.id.isEmpty()) "" else Formato.paraEditar(gasto.monto)) }
     var categoria by remember { mutableStateOf(gasto.categoria) }
     val montoNum = Formato.leerNumero(monto)
-    val insumo = if (gasto.id.isEmpty() && categoria == "Insumos") insumos.firstOrNull { it.nombre == insumoNombre } else null
+    val insumo = if (gasto.id.isEmpty() && categoria == Categorias.MERCADERIA) insumos.firstOrNull { it.nombre == insumoNombre } else null
     val cantidadNum = Formato.leerNumero(cantidadComprada)
     val compra = if (insumo != null && cantidadNum != null && cantidadNum > 0) insumo to cantidadNum else null
     val valido = descripcion.isNotBlank() && montoNum != null && montoNum > 0 && (insumo == null || compra != null)
@@ -147,7 +147,14 @@ private fun DialogoGasto(
                 CampoNumero(monto, "Monto") { monto = it }
                 Text("Categoría", style = MaterialTheme.typography.labelMedium)
                 Opciones(Categorias.gastos, categoria) { categoria = it }
-                if (gasto.id.isEmpty() && categoria == "Insumos" && insumos.isNotEmpty()) {
+                if (categoria == Categorias.MERCADERIA) {
+                    Text(
+                        "Para leche, café, vasos, medialunas y todo lo que ya está en el costo de un producto. " +
+                            "Se ve en el Balance pero no se resta de nuevo. Limpieza y arreglos van en Otros.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (gasto.id.isEmpty() && categoria == Categorias.MERCADERIA && insumos.isNotEmpty()) {
                     Text("¿Sumar al stock?", style = MaterialTheme.typography.labelMedium)
                     Opciones(listOf(NINGUNO) + insumos.map { it.nombre }, insumoNombre) { insumoNombre = it }
                     if (insumo != null) CampoNumero(cantidadComprada, "Cantidad comprada (${insumo.unidad})") { cantidadComprada = it }

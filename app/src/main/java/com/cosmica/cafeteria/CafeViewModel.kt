@@ -45,7 +45,10 @@ data class EstadoInsumo(
 data class Balance(
     val ingresos: Double = 0.0,
     val costoMercaderia: Double = 0.0,
+    /** Gastos que restan (alquiler, servicios...). No incluye las compras de mercadería. */
     val gastos: Double = 0.0,
+    /** Compras de mercadería del mes: solo informativo, ya están dentro del costo de lo vendido. */
+    val comprasMercaderia: Double = 0.0,
     val cantidadVentas: Int = 0,
     val porMetodoPago: Map<String, Double> = emptyMap(),
     val porVendedor: Map<String, Double> = emptyMap(),
@@ -317,7 +320,8 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
         private const val DIA_MS = 24L * 60 * 60 * 1000
         private const val DIAS_CONSUMO = 30L
 
-        fun armarBalance(todas: List<Venta>, g: List<Gasto>): Balance {
+        fun armarBalance(todas: List<Venta>, todosLosGastos: List<Gasto>): Balance {
+            val (compras, g) = todosLosGastos.partition { it.categoria == Categorias.MERCADERIA }
             val zona = ZoneId.systemDefault()
             val v = todas.filter { !it.esConsumo }
             val consumos = todas.filter { it.esConsumo }
@@ -326,6 +330,7 @@ class CafeViewModel(private val repo: Repositorio, private val sesion: Sesion) :
                 ingresos = v.sumOf { it.total },
                 costoMercaderia = v.sumOf { it.costoTotal },
                 gastos = g.sumOf { it.monto },
+                comprasMercaderia = compras.sumOf { it.monto },
                 cantidadVentas = v.size,
                 porMetodoPago = v.groupBy { it.metodoPago }.mapValues { (_, l) -> l.sumOf { it.total } },
                 porVendedor = v.groupBy { it.vendedor.ifBlank { "Sin nombre" } }

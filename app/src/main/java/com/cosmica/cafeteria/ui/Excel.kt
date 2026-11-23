@@ -143,6 +143,7 @@ object Excel {
             add(listOf("Costo de lo vendido", b.costoMercaderia))
             add(listOf("Ganancia bruta", b.gananciaBruta))
             add(listOf("Gastos", b.gastos))
+            if (b.comprasMercaderia > 0) add(listOf("Compras de mercadería (ya en el costo, no se restan)", b.comprasMercaderia))
             if (b.consumoEquipo > 0) add(listOf("Consumo del equipo (a costo)", b.consumoEquipo))
             add(listOf("Ganancia neta", b.gananciaNeta))
             add(listOf("Ticket promedio", b.ticketPromedio))

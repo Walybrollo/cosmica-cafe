@@ -10,6 +10,8 @@ Para entrar la primera vez en un teléfono sí hace falta internet.
 - **Vender**: tocás los productos para armar el pedido, elegís efectivo, tarjeta o transferencia y tocás *Cobrar*.
 - **Ventas**: lo vendido hoy y en el mes, con el detalle de cada venta y quién la hizo.
 - **Gastos**: compras de insumos, alquiler, servicios, sueldos, etc., con quién lo cargó.
+  Las compras de mercadería (categoría *Insumos*: leche, café, vasos, medialunas) se ven en el Balance pero no
+  se restan de la ganancia, porque su costo ya entra en el costo de cada producto vendido.
 - **Menú**: agregás, editás o quitás productos con su precio y su costo. Muestra la ganancia y el margen de cada uno.
 - **Balance**: por mes, ventas, costo de lo vendido, ganancia bruta, gastos y **ganancia neta**; además lo cobrado por
   medio de pago, lo vendido por cada persona, gastos por categoría y los productos más vendidos.
