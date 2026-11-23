@@ -208,6 +208,18 @@ fun BalanceScreen(vm: CafeViewModel, modifier: Modifier) {
             }
         }
 
+        if (b.comprasPorRubro.isNotEmpty()) {
+            Seccion("Compras de mercadería por rubro") {
+                b.comprasPorRubro.entries.sortedByDescending { it.value }.forEach { (c, v) ->
+                    Barra(c, v, b.comprasMercaderia, MaterialTheme.colorScheme.tertiary)
+                }
+                Text(
+                    "No se restan de la ganancia: ya están en el costo de lo vendido.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
         if (b.productos.isNotEmpty()) {
             Seccion("Productos más vendidos") {
                 b.productos.take(10).forEach { p ->

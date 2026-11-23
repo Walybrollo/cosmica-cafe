@@ -103,6 +103,11 @@ data class Gasto(
     val categoria: String,
     val monto: Double,
     val cargadoPor: String = "",
+    /**
+     * Compra de mercadería (leche, pan, mango...). Su costo ya entra en el costo de cada producto vendido,
+     * así que el balance la muestra pero no la vuelve a restar. En ese caso [categoria] es el rubro.
+     */
+    val mercaderia: Boolean = false,
 )
 
 data class ResumenProducto(
@@ -114,12 +119,12 @@ data class ResumenProducto(
 
 object Categorias {
     val productos = listOf("Cafés", "Bebidas", "Comidas", "Dulces", "Otros")
-    /**
-     * Compras de mercadería (leche, café, vasos, medialunas...). Su costo ya entra en el costo de cada producto
-     * vendido, así que el balance las muestra pero no las vuelve a restar.
-     */
+    /** Categoría vieja de las compras de mercadería (antes de que existieran los rubros). */
     const val MERCADERIA = "Insumos"
-    val gastos = listOf(MERCADERIA, "Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
+    /** Gastos del local: estos sí se restan de la ganancia. */
+    val gastos = listOf("Alquiler", "Servicios", "Sueldos", "Impuestos", "Otros")
+    /** Rubros de mercadería que vienen de entrada; se pueden crear más desde Gastos. */
+    val rubros = listOf("Café y leche", "Panadería", "Sándwich", "Licuados", "Descartables")
     val metodosPago = listOf("Efectivo", "Tarjeta", "Transferencia")
     /** Lo que consume el equipo (desayunos, meriendas): no es venta, se cuenta a costo. */
     const val CONSUMO = "Consumo del equipo"

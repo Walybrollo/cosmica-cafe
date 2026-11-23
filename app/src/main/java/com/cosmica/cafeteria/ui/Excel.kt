@@ -166,8 +166,13 @@ object Excel {
             }
         val hojaProductos = listOf(listOf("Producto", "Cantidad", "Vendido", "Ganancia")) +
             b.productos.map { listOf(it.nombre, it.cantidad, it.ingresos, it.ganancia) }
-        val hojaGastos = listOf(listOf("Fecha", "Descripción", "Categoría", "Monto", "Cargó")) +
-            gastos.sortedBy { it.fecha }.map { listOf(it.fecha.f().format(fecha), it.descripcion, it.categoria, it.monto, it.cargadoPor) }
+        val hojaGastos = listOf(listOf("Fecha", "Descripción", "Tipo", "Categoría o rubro", "Monto", "Cargó")) +
+            gastos.sortedBy { it.fecha }.map {
+                listOf(
+                    it.fecha.f().format(fecha), it.descripcion, if (it.mercaderia) "Mercadería" else "Gasto del local",
+                    it.categoria, it.monto, it.cargadoPor,
+                )
+            }
         val hojaCierres = listOf(listOf("Día", "Fondo inicial", "Ventas en efectivo", "Otros medios", "Debía haber", "Contado", "Diferencia", "Cerró", "Nota")) +
             cierres.sortedBy { it.dia }.map {
                 listOf(it.dia, it.fondoInicial, it.ventasEfectivo, it.ventasOtros, it.esperado, it.contado, it.diferencia, it.cerradoPor, it.nota)
